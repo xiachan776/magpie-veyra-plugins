@@ -1,0 +1,80 @@
+name: upstream drift
+
+# 本包复刻的是 Veyra 的协议，不是它的代码。协议改了，本包的某个请求头或签名就会
+# 悄悄失效，在 magpie 里只表现为「上游 400」。这个 workflow 每 2 小时比对一次
+# Veyra 里那些协议源文件的哈希，变了就开一个 issue。
+#
+# 只报警，不改代码、不自动开 PR：协议变了要人去看是哪一条变了，自动改反而危险。
+#
+# 需要 secrets.VEYRA_TOKEN —— 一个能读 xiachan776/veyra 的 PAT（Veyra 是私有
+# 仓库，GITHUB_TOKEN 读不到）。没配时跳过并打一条 notice，不算失败。
+
+on:
+  schedule:
+    # UTC 偶数小时第 17 分。选 17 分而不是整点：GitHub 的 schedule 队列在整点最
+    # 堵，实测延迟更大。
+    - cron: "17 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    # secrets 不能直接写进 step 的 if 表达式，先落到 job 级 env 再由 env 判断。
+    env:
+      VEYRA_TOKEN: ${{ secrets.VEYRA_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 拉 Veyra（稀疏，只要 src）
+        if: env.VEYRA_TOKEN != ''
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            "https://x-access-token:${VEYRA_TOKEN}@github.com/xiachan776/veyra.git" \
+            "$RUNNER_TEMP/veyra"
+          git -C "$RUNNER_TEMP/veyra" sparse-checkout set src
+
+      - name: 比对
+        id: drift
+        if: env.VEYRA_TOKEN != ''
+        run: |
+          set +e
+          node scripts/upstream.mjs --dir "$RUNNER_TEMP/veyra" --check > "$RUNNER_TEMP/drift.txt" 2>&1
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/drift.txt"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: 开 issue
+        if: env.VEYRA_TOKEN != '' && steps.drift.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="上游 Veyra 的协议源文件变了"
+          {
+            echo "本包的实现依据（见 \`upstream.json\`）里有文件变了："
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/drift.txt"
+            echo '```'
+            echo
+            echo "去看是哪一条协议变了（端点 / 请求头 / 签名 / 模型目录 / 积分与签到端点），改完跑 \`node scripts/upstream.mjs --dir <Veyra 检出> --write\` 更新账本。"
+          } > "$RUNNER_TEMP/body.md"
+          # 同标题的 issue 还开着就追加评论，不重复开
+          open=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+      - name: 没配 token
+        if: env.VEYRA_TOKEN == ''
+        run: echo "::notice::没有 secrets.VEYRA_TOKEN，跳过漂移检查"

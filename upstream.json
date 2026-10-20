@@ -1,0 +1,89 @@
+{
+  "files": {
+    "src/product.ts": {
+      "sha": "05002b883e547d61",
+      "why": "codebuddy / codebuddy-intl：四产品常量、端点、UA、兜底模型表"
+    },
+    "src/buddy.ts": {
+      "sha": "9867c626a031a152",
+      "why": "腾讯系头部常量、登录与模型端点路径"
+    },
+    "src/buddy-oauth.ts": {
+      "sha": "465d3c914301c033",
+      "why": "腾讯系登录三步（state → token → account）与续期"
+    },
+    "src/buddy-adapter.ts": {
+      "sha": "ebe97cfd7b7a657d",
+      "why": "CodeBuddy 出站头与请求体"
+    },
+    "src/lobsterai.ts": {
+      "sha": "13005ace620987f5",
+      "why": "LobsterAI 端点、信封、token 解析"
+    },
+    "src/lobsterai-product.ts": {
+      "sha": "7059d47c55d1f437",
+      "why": "LobsterAI 端点与产品常量"
+    },
+    "src/lobsterai-oauth.ts": {
+      "sha": "694db0edde5b8bab",
+      "why": "LobsterAI 本地回调登录与 exchange"
+    },
+    "src/lobsterai-adapter.ts": {
+      "sha": "ce765e9abae1fd15",
+      "why": "LobsterAI 请求体（stream 恒 true、无 tool_choice、无图）"
+    },
+    "src/lobsterai-credits.ts": {
+      "sha": "f19648543d5b1501",
+      "why": "LobsterAI 签到与积分"
+    },
+    "src/llm-adapter.ts": {
+      "sha": "ea8223223e98311a",
+      "why": "CodeArts 请求体、模型表、上下文窗口、max_tokens 上限"
+    },
+    "src/sign.ts": {
+      "sha": "b39e93d1b5d7a002",
+      "why": "华为云 SDK-HMAC-SHA256 签名"
+    },
+    "src/oauth.ts": {
+      "sha": "2612e394630f6a1f",
+      "why": "CodeArts PKCE + DPoP 与 STS token 交换"
+    },
+    "src/login.ts": {
+      "sha": "c002e7758c2cfbd6",
+      "why": "CodeArts 登录 URL 与回调（不能带 auth_callback_url、端口 ≥10000）"
+    },
+    "src/models.ts": {
+      "sha": "7b882ec552ef7282",
+      "why": "CodeArts 两个模型源、benefit 集合、视觉模型过滤"
+    },
+    "src/codearts-credits.ts": {
+      "sha": "4fef3a10457d49bb",
+      "why": "CodeArts 积分与签到三步"
+    },
+    "src/loomy.ts": {
+      "sha": "951832984c7db148",
+      "why": "Loomy 端点、信封、两套认证头"
+    },
+    "src/loomy-sign.ts": {
+      "sha": "8d6bf76c401134dc",
+      "why": "讯飞 CAccount HMAC-SHA1 签名"
+    },
+    "src/loomy-oauth.ts": {
+      "sha": "a44a541baafd58dd",
+      "why": "Loomy 短信两步登录"
+    },
+    "src/loomy-adapter.ts": {
+      "sha": "22378da74b6fa233",
+      "why": "Loomy 请求体与模型目录"
+    },
+    "src/loomy-product.ts": {
+      "sha": "cc2773f043154dba",
+      "why": "Loomy 兜底模型表与图片能力覆盖"
+    },
+    "src/loomy-credits.ts": {
+      "sha": "82d2977c175f84cc",
+      "why": "Loomy 积分与签到"
+    }
+  },
+  "updated": "2026-10-20T12:57:35.641Z"
+}

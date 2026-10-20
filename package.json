@@ -1,0 +1,29 @@
+{
+  "name": "magpie-veyra-auth",
+  "version": "0.1.0",
+  "description": "Magpie provider plugins for the subscriptions Veyra signs in to and magpie has no provider for: CodeBuddy (CN and Intl), LobsterAI, CodeArts and Loomy",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": "./index.mjs",
+  "files": [
+    "index.mjs",
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "magpie",
+    "magpie-plugin",
+    "opencode",
+    "codebuddy",
+    "codearts",
+    "lobsterai",
+    "loomy"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
