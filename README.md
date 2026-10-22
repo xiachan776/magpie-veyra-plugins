@@ -102,7 +102,7 @@ magpie accounts checkin --json   # 同上，机器可读
 ## 开发
 
 ```sh
-node --test      # 36 个测试，宿主契约 + 五个插座 + 工具
+node --test      # 38 个测试，宿主契约 + 五个插座 + 工具
 node scripts/icon.mjs          # icon.svg → package.json 的 magpie.icon（data URI）
 node scripts/icon.mjs --check  # 只校验是否同步
 ```
