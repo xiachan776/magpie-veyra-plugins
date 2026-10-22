@@ -1,0 +1,467 @@
+/* Veyra · magpie 面板的样式。
+ *
+ * 只用 bridge.js 注入的 `--magpie-*` 变量，且每个都带兜底值：变量缺了也读得清，
+ * 不至于出现「深色主题上写黑字」。深色/浅色都靠这一条约束成立，没有第二套配色。
+ */
+
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  /* 页面被塞进 iframe，宽度跟着宿主走；不要写死 max-width */
+  padding: 20px 22px 40px;
+  background: var(--magpie-bg, #16181c);
+  color: var(--magpie-fg, #e7e8ea);
+  font-family: var(--magpie-font, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif);
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- 顶栏 ---------------------------------------------------------------- */
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  /* 顶栏一律靠左（用户明确要求过：居中视为 bug） */
+  text-align: left;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.tagline {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 260px;
+  padding: 3px 9px;
+  border: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--magpie-fg-2, rgba(200, 204, 210, 0.95));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip:empty {
+  display: none;
+}
+
+.btn {
+  padding: 4px 12px;
+  border: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  border-radius: 7px;
+  background: var(--magpie-card, rgba(255, 255, 255, 0.05));
+  color: var(--magpie-fg, #e7e8ea);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--magpie-accent, #5b8def);
+  color: var(--magpie-accent, #5b8def);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+/* ---- 区块 ---------------------------------------------------------------- */
+
+.block {
+  margin-top: 22px;
+}
+
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.sec-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--magpie-fg-2, rgba(200, 204, 210, 0.95));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sec-note {
+  font-size: 11.5px;
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+/* ---- 小数字卡 ------------------------------------------------------------ */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  padding: 11px 13px;
+  border: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  border-radius: 10px;
+  background: var(--magpie-card, rgba(255, 255, 255, 0.04));
+}
+
+.tile .k {
+  font-size: 11px;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+.tile .v {
+  margin-top: 2px;
+  font-size: 18px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile .u {
+  margin-left: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+/* 量条格单占整行：132px 会把「209K / 541K」挤成两行、条也短到看不出比例，
+   而 `span 2` 在不同视口下会把两条拆到相邻两行、各留一格空白（像 bug）。
+   `1 / -1`（首列到末列）在任何列数下都不溢出，两条量条也会稳定地上下相邻。 */
+.tile.gauge {
+  grid-column: 1 / -1;
+}
+
+/* ---- provider 卡 --------------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 13px 14px;
+  border: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  border-radius: 11px;
+  background: var(--magpie-card, rgba(255, 255, 255, 0.04));
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.card-sub {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+.pid {
+  font-family: var(--magpie-code, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11px;
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+.badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.badge.ok {
+  color: var(--magpie-green, #3fb950);
+}
+
+.badge.off {
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+.badge.dead {
+  color: var(--magpie-red, #f85149);
+}
+
+.facts {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--magpie-fg-2, rgba(200, 204, 210, 0.95));
+}
+
+.facts b {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 额度条 -------------------------------------------------------------- */
+
+.win {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.win-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+.win-top .amt {
+  color: var(--magpie-fg-2, rgba(200, 204, 210, 0.95));
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--magpie-line, rgba(128, 128, 128, 0.22));
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--magpie-accent, #5b8def);
+}
+
+.bar > i.hot {
+  background: var(--magpie-amber, #d29922);
+}
+
+.bar > i.full {
+  background: var(--magpie-red, #f85149);
+}
+
+.win-note {
+  font-size: 11px;
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+/* ---- 签到 ---------------------------------------------------------------- */
+
+.checkin {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.checkin.on {
+  color: var(--magpie-green, #3fb950);
+}
+
+.checkin.off {
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+.checkin .said {
+  color: var(--magpie-fg-2, rgba(200, 204, 210, 0.95));
+}
+
+.card-error {
+  margin: 0;
+  padding-top: 7px;
+  border-top: 1px dashed var(--magpie-line, rgba(128, 128, 128, 0.22));
+  font-size: 11px;
+  color: var(--magpie-red, #f85149);
+  word-break: break-word;
+}
+
+/* ---- 用量 ---------------------------------------------------------------- */
+
+.seg {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.seg button {
+  padding: 3px 11px;
+  border: 0;
+  background: transparent;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.seg button + button {
+  border-left: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+}
+
+.seg button[aria-selected="true"] {
+  background: var(--magpie-accent-soft, rgba(91, 141, 239, 0.18));
+  color: var(--magpie-accent, #5b8def);
+}
+
+.since {
+  margin: 0 0 9px;
+  font-size: 11px;
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+.since:empty {
+  display: none;
+}
+
+.models {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.models li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 10px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.models li:nth-child(odd) {
+  background: var(--magpie-card, rgba(255, 255, 255, 0.04));
+}
+
+.models .name {
+  font-family: var(--magpie-code, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 11px;
+  color: var(--magpie-fg-2, rgba(200, 204, 210, 0.95));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models .num {
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+/* ---- 空态 / 错误 --------------------------------------------------------- */
+
+.empty,
+.error {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--magpie-line, rgba(128, 128, 128, 0.22));
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+}
+
+.error {
+  border-style: solid;
+  border-color: var(--magpie-red, #f85149);
+  color: var(--magpie-red, #f85149);
+  word-break: break-word;
+}
+
+.empty[hidden],
+.error[hidden] {
+  display: none;
+}
+
+.footer {
+  margin-top: 26px;
+  padding-top: 12px;
+  border-top: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  font-size: 11px;
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+.footer:empty {
+  display: none;
+}
+
+/* 窄屏：卡片单列，用量表压成两行 */
+@media (max-width: 520px) {
+  body {
+    padding: 14px 13px 30px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .models li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+
+  .models .num:nth-of-type(2) {
+    display: none;
+  }
+}

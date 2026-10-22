@@ -72,7 +72,14 @@ export async function envelope(base, method, path, { headers = {}, body, timeout
  * 不是凭据过期。不打这个头，magpie 会把账号标成失效并要求用户重新登录。
  */
 export function kept(res) {
-  const out = new Response(res.body, { status: res.status, statusText: res.statusText, headers: new Headers(res.headers) })
+  // `new Response(body)` 会按 UTF-8 重新编码，但**不沿用**原来头里的
+  // `content-encoding`/`content-length`：上游若发过 `gzip`，这两个头留着就会让
+  // 客户端去解一段已经解好的明文（表现为「invalid gzip header」）。故先删掉，
+  // 长度交给 undici 自己算。
+  const headers = new Headers(res.headers)
+  headers.delete("content-length")
+  headers.delete("content-encoding")
+  const out = new Response(res.body, { status: res.status, statusText: res.statusText, headers })
   out.headers.set("X-Magpie-Sign-In", "kept")
   return out
 }

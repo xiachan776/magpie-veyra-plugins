@@ -8,6 +8,7 @@
  */
 
 import assert from "node:assert/strict"
+import fs from "node:fs"
 import test from "node:test"
 
 import {
@@ -125,4 +126,18 @@ test("checkin 只报宿主认的 outcome（internal/plugin/host.js:2329）", asy
     assert.ok(outcomes.includes(r.outcome), `${id}: 未知 outcome ${r.outcome}`)
     assert.equal(typeof r.message, "string")
   }
+})
+
+test("VERSION 与 package.json 一致（发版时最容易忘记的一处）", async () => {
+  const { VERSION } = await import("../index.mjs")
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+  assert.equal(VERSION, pkg.version)
+})
+
+test("provider 图标合宿主要求（host.js:1850：https 或 data:image，≤1.5 MB）", async () => {
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+  const icon = pkg.magpie?.icon
+  assert.equal(typeof icon, "string", "没有 magpie.icon 时 Providers 页的卡片就没有图标")
+  assert.match(icon, /^(https:\/\/|data:image\/)/i, "相对路径会被 iconOf() 静默丢掉")
+  assert.ok(icon.length <= 3 << 19)
 })

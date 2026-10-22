@@ -654,10 +654,15 @@ async function usageOf(cred) {
 }
 
 /**
- * 每日签到（三步：查槽位 → 查上下文 → 领取）。
+ * 每日签到（三步：查槽位 → 查上下文 → 领取 → 复核）。
  *
  * 判定顺序把「业务正常状态」与「真失败」严格分开：今天已领是 `done`，
  * 活动不存在是 `inactive`，两者都不该报错。
+ *
+ * 领取后**再拉一次 context 复核**（照 `L0NE-6/LobsterAI-AutoCheckin` 的做法）：
+ * 领取接口可能回 200 但什么都没发（幂等命中、活动已改配置）。不复核就会把
+ * 「其实没领到」报成 claimed，用户看到积分没变而面板说成功。复核只认
+ * `state.claimedToday === true`；拉不到就退回「领取接口成功即 claimed」。
  */
 async function checkin(cred) {
   const version = await clientVersion()
@@ -705,6 +710,22 @@ async function checkin(cred) {
   const credit = ["creditsGranted", "rewardCredits", "credits"]
     .map((k) => result[k])
     .find((v) => typeof v === "number" && Number.isFinite(v)) ?? 0
+  // 复核：再拉一次 context，只有 `claimedToday` 真的变成 true 才算领到。
+  // 拉不到（网络抖动、活动刚结束）就退回领取接口的结果，不因为复核失败而
+  // 把一次可能成功的签到报成 failed —— 那会让用户反复重试。
+  let confirmed = null
+  try {
+    const after = await call(`${base}/context?configRevision=${revision}`, { headers: authHeaders(cred.access_token) })
+    confirmed = after?.state?.claimedToday === true
+  } catch {}
+  if (confirmed === false) {
+    // 领取接口说成功、复核说没签上：多半是活动状态未推进，如实报 inactive
+    // 并带上原文，用户看到的是「没领到」，不会以为积分少了。
+    return {
+      outcome: "inactive",
+      message: `the check-in went through but today is still marked unchecked${credit > 0 ? ` (said +${compact(credit)})` : ""}`,
+    }
+  }
   return {
     outcome: "claimed",
     message: `claimed ${compact(credit)} credits`,

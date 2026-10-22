@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veyra · magpie</title>
+<link rel="stylesheet" href="style.css">
+<script src="_magpie/bridge.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>Veyra · magpie</h1>
+    <p class="tagline">五家供应商的账号、额度、签到与模型一览</p>
+  </div>
+  <div class="meta">
+    <span class="chip" id="generated" title="快照生成时刻"></span>
+    <span class="chip" id="version" title="插件版本"></span>
+    <button type="button" class="btn" id="refresh">刷新</button>
+  </div>
+</header>
+
+<section class="block" aria-labelledby="overview-h">
+  <div class="sec-head">
+    <h2 id="overview-h">总览</h2>
+    <span class="sec-note" id="overview-note"></span>
+  </div>
+  <div class="tiles" id="tiles"></div>
+</section>
+
+<section class="block" aria-labelledby="providers-h">
+  <div class="sec-head">
+    <h2 id="providers-h">Provider</h2>
+    <span class="sec-note" id="providers-note"></span>
+  </div>
+  <div class="grid" id="cards"></div>
+  <p class="empty" id="cards-empty" hidden></p>
+</section>
+
+<section class="block" aria-labelledby="usage-h">
+  <div class="sec-head">
+    <h2 id="usage-h">magpie 记账</h2>
+    <div class="seg" id="periods" role="tablist" aria-label="统计区间">
+      <button type="button" role="tab" data-period="today" aria-selected="true">今天</button>
+      <button type="button" role="tab" data-period="7d" aria-selected="false">7 天</button>
+      <button type="button" role="tab" data-period="30d" aria-selected="false">30 天</button>
+    </div>
+  </div>
+  <p class="since" id="since"></p>
+  <div class="tiles" id="usage-tiles"></div>
+  <ol class="models" id="models"></ol>
+  <p class="empty" id="usage-empty" hidden></p>
+  <p class="error" id="usage-error" hidden></p>
+</section>
+
+<p class="footer" id="footer"></p>
+
+</body>
+</html>

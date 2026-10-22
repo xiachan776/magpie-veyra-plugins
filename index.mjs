@@ -37,10 +37,21 @@ export { default as CodeArtsPlugin } from "./src/codearts.mjs"
 export { default as LoomyPlugin } from "./src/loomy.mjs"
 
 /**
+ * 第六个导出：**只挂工具，不注册 provider**。
+ *
+ * 插件页被沙箱钉死（`connect-src 'none'`，`PageReads` 只有 `providers:list` 与
+ * `usage:summary`），读不到账号与签到实况，也发不出请求。tool 钩子经 magpie 的
+ * plugin-tools MCP server 暴露给每个 agent，跑在宿主进程里，能自由读盘 —— 这是把
+ * 「列账号 / 与 Veyra 互通」交出去的唯一通道。它的 `auth` 不存在，所以不会出现在
+ * Providers 页，也不会和上面五家抢 provider id。
+ */
+export { VeyraToolsPlugin } from "./src/tool.mjs"
+
+/**
  * 版本号：`package.json` 是唯一真源，这里只做一次导出方便自检。
  *
  * ⚠️ 不在运行时读 `package.json` —— 插件是被 magpie 从 node_modules 里 import
  * 的，`fs` 读相对路径依赖 `import.meta.url` 的解析方式，Bun 下与 Node 下对
  * 打包目录的处置不同，读失败会让整个插件加载失败（代价远大于收益）。
  */
-export const VERSION = "0.1.0"
+export const VERSION = "0.2.0"

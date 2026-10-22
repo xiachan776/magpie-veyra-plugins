@@ -1,6 +1,6 @@
 {
   "name": "magpie-veyra-auth",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Magpie provider plugins for the subscriptions Veyra signs in to and magpie has no provider for: CodeBuddy (CN and Intl), LobsterAI, CodeArts and Loomy",
   "type": "module",
   "main": "./index.mjs",
@@ -8,6 +8,8 @@
   "files": [
     "index.mjs",
     "src",
+    "page",
+    "icon.svg",
     "README.md"
   ],
   "keywords": [
@@ -24,6 +26,27 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "icon": "node scripts/icon.mjs",
+    "icon:check": "node scripts/icon.mjs --check"
+  },
+  "magpie": {
+    "page": {
+      "title": "Veyra accounts",
+      "titles": {
+        "zh": "Veyra 账号",
+        "zh-TW": "Veyra 帳號"
+      },
+      "file": "page/index.html",
+      "icon": "page/icon.svg"
+    },
+    "permissions": [
+      "providers:list",
+      "usage:summary"
+    ],
+    "options": {
+      "period": "today"
+    },
+    "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlZleXJhIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM0ZjdjZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3YjNmZjIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNSIgZmlsbD0idXJsKCNnKSIvPjxwYXRoIGQ9Ik0xNyAxOWwxNSAyNyAxNS0yNyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC45MiI+PGNpcmNsZSBjeD0iMjAiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iMjYiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iMzIiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iMzgiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iNDQiIGN5PSI1MiIgcj0iMi42Ii8+PC9nPjwvc3ZnPg=="
   }
 }

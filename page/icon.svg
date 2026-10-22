@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="Veyra · magpie">
+  <!--
+    页面图标：`magpie.page.icon` 指到这个文件。`internal/plugin/page.go` 的
+    `WindowPage` 会把它换算成相对页面目录的路径（`page/icon.svg` → `icon.svg`），
+    所以它必须与 index.html 同目录。
+
+    只用 currentColor：图标要在深色/浅色两套主题下都成立，而页面里没有第二套配色。
+    也不引外部资源 —— CSP 是 `img-src 'self' data:`，外链会被直接拦掉。
+    三根递增的竖条 = 「多个渠道的用量」，与 usage 参考插件刻意区分（那是单根柱）。
+  -->
+  <path d="M3 13V8M7 13V4M11 13V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="13.4" cy="3.2" r="1.4" fill="currentColor"/>
+</svg>

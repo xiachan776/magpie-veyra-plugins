@@ -35,7 +35,11 @@ const CHECKIN_PATH = "/v2/billing/meter/daily-checkin"
 
 const CODE_TOKEN_NOT_READY = 11217
 const CODE_ACCOUNT_NOT_READY = 12151
+/** 签到领取的业务码：10001 与 1001 都是「今天已领」，1002 无资格、1003 活动结束。 */
 const CODE_ALREADY_CLAIMED = 10001
+const CODE_ALREADY_CLAIMED_ALT = 1001
+const CODE_NO_QUALIFICATION = 1002
+const CODE_ACTIVITY_ENDED = 1003
 
 /** 中国版：`/v3/config` 的 craft agent 白名单，逐个真实请求验证过可用。 */
 const CN_MODELS = [
@@ -555,7 +559,9 @@ const meter = async (site, a, path) => {
  *
  * 必须用 `checkin-activity-status`，不能用 `checkin-status`：后者返回占位
  * 数据（`active:false`、`checkin_dates:null`），会让人误判成「活动没开」。
- * 重复领取回 HTTP 400 + `code 10001`「今天已签到」，按已领取处理而不是失败。
+ * 重复领取回 HTTP 400 + `code 10001/1001`「今天已签到」，按已领取处理而不是失败。
+ * 业务码映射：1002=无资格、1003=活动结束 → inactive；10001/1001=已领 → done。
+ * 返回 streak_days（若远端提供）+ credit。
  */
 async function checkin(site, a) {
   if (!site.checkin) return { outcome: "ineligible", message: `${site.name} has no daily check-in` }
@@ -565,14 +571,31 @@ async function checkin(site, a) {
   } catch (e) {
     return { outcome: "failed", message: e?.message ?? String(e) }
   }
-  if (!status?.active) return { outcome: "inactive", message: status?.activity_name ?? `${site.name} has no check-in running` }
-  if (status.today_checked_in) return { outcome: "done", message: "already checked in today" }
+  if (!status?.active) {
+    const msg = status?.activity_name ?? `${site.name} has no check-in running`
+    return { outcome: "inactive", message: msg }
+  }
+  if (status.today_checked_in) {
+    // 当天已签，仍上报 streak（若有）
+    const streak = Number(status.streak_days) || 0
+    return { outcome: "done", message: "already checked in today", streak }
+  }
   try {
     const got = await meter(site, a, CHECKIN_PATH)
     const n = capacity(got?.credit)
-    return { outcome: "claimed", message: `claimed ${compact(n)} credits`, ...(n > 0 ? { credit: n } : {}) }
+    // 成功领取时，远端响应里也带 streak_days
+    const streak = Number(got?.streak_days) || Number(status.streak_days) || 0
+    return { outcome: "claimed", message: `claimed ${compact(n)} credits`, ...(n > 0 ? { credit: n } : {}), ...(streak > 0 ? { streak } : {}) }
   } catch (e) {
-    if (Number(e?.code) === CODE_ALREADY_CLAIMED || /already|已签到/.test(String(e?.message))) {
+    const code = Number(e?.code)
+    // 10001/1001 = 今天已领；1002 = 无资格；1003 = 活动结束
+    if (code === CODE_ALREADY_CLAIMED || code === CODE_ALREADY_CLAIMED_ALT) {
+      return { outcome: "done", message: "already checked in today" }
+    }
+    if (code === CODE_NO_QUALIFICATION || code === CODE_ACTIVITY_ENDED) {
+      return { outcome: "inactive", message: e?.message ?? (code === CODE_NO_QUALIFICATION ? "no qualification" : "activity ended") }
+    }
+    if (/already|已签到/.test(String(e?.message))) {
       return { outcome: "done", message: "already checked in today" }
     }
     return { outcome: "failed", message: e?.message ?? String(e) }
