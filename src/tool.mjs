@@ -48,7 +48,7 @@ const NAMES = {
   loomy: "Loomy",
 }
 
-const ACTIONS = ["all", "list", "show", "rename", "remove", "import", "export"]
+const ACTIONS = ["all", "list", "checkin", "show", "rename", "remove", "import", "export"]
 
 /**
  * 读签到记录：键是 `"<provider>|<accountId>"`（`pluginCheckinPath()` 的落盘形状）。
@@ -273,6 +273,105 @@ function doRemove(dir, which, confirm) {
   ])
 }
 
+/**
+ * 今日签到实况（`checkin`）。
+ *
+ * ## 为什么不在这里“跑”签到
+ *
+ * magpie 已经每天自动签：`internal/provider/plugin_checkin.go:216` 的
+ * `KeepPluginsCheckedIn` 按北京日逐个账号签、当天失败稍后重试，结果写进
+ * `plugin-checkin.json`；手动触发也有现成入口（`POST /api/usage/plugin-checkin`，
+ * Usage 页的按钮就走它）。
+ *
+ * 插件**不重复实现**定时器，也不自己调 `auth.checkin`：那条路径要求 `getAuth()`，
+ * 而刷新 token 后的回写归宿主管；插件另起一条写路径只会在同一份
+ * `plugin-auth.json` 上和宿主抢写。
+ *
+ * 所以这里只做一件事——**把宿主写下的结果整理成人话**，说清「今天谁签了、谁没签、
+ * 谁签失败了为什么」。这正是签到系统里唯一还缺的那块：可见性。
+ */
+function doCheckin(dir, which) {
+  const r = manageList(dir)
+  if (!r.ok) return r.error
+  const checkins = readCheckins(dir)
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const want = String(which || "").trim().toLowerCase()
+
+  // 只看本包的号；`which` 可以收窄到一家 provider 或一个账号。
+  const rows = r.rows.filter((row) => !want || row.provider === want || row.key === want)
+  if (!rows.length) {
+    const scope = want ? `${want} — ` : ""
+    return `${scope}no account of this package's five providers. Sign in on magpie's Providers page first.`
+  }
+
+  const buckets = { claimed: [], done: [], other: [], none: [], stale: [] }
+  for (const row of rows) {
+    // 与宿主 `whoOf()` 同序（internal/provider/plugin_checkin.go:60-65）：
+    // 有 accountId 用它，否则退化成账号 key。
+    const rec = checkins[`${row.provider}|${row.accountId || row.key}`]
+    if (!rec || typeof rec !== "object") {
+      buckets.none.push(row)
+      continue
+    }
+    if (rec.day !== today) {
+      // ⚠️ 关键区分：昨天签到成功 ≠ 今天已签。上游 auto-checkin.ts 在这里
+      // 栽过（Qoder 在 10:00 UTC+8 刷新前看到的 CLAIMED 属于昨天）。
+      buckets.stale.push({ row, rec })
+      continue
+    }
+    const outcome = String(rec.outcome ?? "")
+    if (outcome === "claimed") buckets.claimed.push({ row, rec })
+    else if (outcome === "done") buckets.done.push({ row, rec })
+    else buckets.other.push({ row, rec })
+  }
+
+  const out = []
+  out.push(`Today (${today}, UTC+8) — ${rows.length} account${rows.length === 1 ? "" : "s"}:`)
+  out.push("")
+  if (buckets.claimed.length) {
+    out.push(`claimed today (${buckets.claimed.length})`)
+    for (const { row, rec } of buckets.claimed) out.push(`  ${oneLine(row.key, 26).padEnd(26)} ${creditOf(rec)}`)
+  }
+  if (buckets.done.length) {
+    out.push(`already in when checked (${buckets.done.length})`)
+    for (const { row, rec } of buckets.done) out.push(`  ${oneLine(row.key, 26).padEnd(26)} ${rec.msg ? oneLine(rec.msg, 60) : "already claimed today"}`)
+  }
+  if (buckets.other.length) {
+    out.push(`not claimed (${buckets.other.length})`)
+    for (const { row, rec } of buckets.other) {
+      out.push(`  ${oneLine(row.key, 26).padEnd(26)} ${String(rec.outcome ?? "?")}${rec.msg ? " — " + oneLine(rec.msg, 70) : ""}`)
+    }
+  }
+  if (buckets.stale.length) {
+    out.push(`only an earlier day on record (${buckets.stale.length})`)
+    for (const { row, rec } of buckets.stale) {
+      out.push(`  ${oneLine(row.key, 26).padEnd(26)} ${String(rec.outcome ?? "?")} on ${rec.day ?? "?"} — not today`)
+    }
+  }
+  if (buckets.none.length) {
+    out.push(`never checked in (${buckets.none.length})`)
+    for (const row of buckets.none) out.push(`  ${oneLine(row.key, 26).padEnd(26)} no record`)
+  }
+  out.push("")
+  const claimedToday = buckets.claimed.length + buckets.done.length
+  out.push(`${claimedToday} in today, ${rows.length - claimedToday} not.`)
+  out.push("Check-in runs by itself once a day while the provider's switch is on; magpie's Usage page has the button to do it now.")
+
+  // 只有在“没签”时解释为什么可能没签：签到开关被关、凭据没了。
+  const off = rows.filter((row) => !row.hasSecret)
+  if (off.length) out.push(`! ${off.length} account(s) hold no credential, so they cannot check in: ${off.map((x) => x.key).join(", ")}`)
+  return say(out)
+}
+
+/** 一次签到的进账，`credit` 缺失时不给假数字。 */
+function creditOf(rec) {
+  const bits = []
+  if (Number(rec.credit) > 0) bits.push(`+${rec.credit}`)
+  if (Number(rec.streak) > 0) bits.push(`${rec.streak}-day streak`)
+  if (rec.msg) bits.push(oneLine(rec.msg, 60))
+  return bits.length ? bits.join("  ") : "claimed"
+}
+
 function doExport(dir) {
   const r = exportToVeyra({ dir })
   if (!r.entries.length) {
@@ -305,6 +404,7 @@ function checked(args) {
   }
   const account = typeof args?.account === "string" ? args.account.trim() : ""
   const name = typeof args?.name === "string" ? args.name.trim() : ""
+  // checkin 的 account 是可选的，而且接受 provider id（看一家）与账号 key（看一个号）。
   if (["show", "rename", "remove"].includes(action) && !account) {
     throw new Error(`action=${action} needs account (a key like codebuddy#a1b2c3, a provider, or an account name)`)
   }
@@ -316,8 +416,9 @@ const tool = {
   veyra_accounts: {
     description:
       "Look at and manage magpie's accounts. action=all lists every account magpie knows, across all providers, with the same counts magpie's Providers page shows; the other actions work on the five providers this plugin signs in to (CodeBuddy CN/Intl, LobsterAI, CodeArts, Loomy). " +
-      "action=list shows those five with expiry and check-in state; action=show inspects one account; action=rename sets its name; action=remove deletes it (without confirm=true it only reports which account would go — there is no undo); " +
+      "action=list shows those five with expiry and check-in state; action=checkin reports today's check-in per account — what was claimed, what was already in, what failed and why — and takes an optional account to narrow it to one provider or one account; action=show inspects one account; action=rename sets its name; action=remove deletes it (without confirm=true it only reports which account would go — there is no undo); " +
       "action=import brings Veyra's accounts into magpie's plugin-auth.json (idempotent); action=export prints paste-ready Veyra refs and account entries without touching Veyra's files. " +
+      "Check-in itself needs no action here: magpie checks every account in once a day on its own while that provider's switch is on, and its Usage page has the button to run it now — this tool reports what came of it. " +
       "magpie has no per-account disable switch: the file has no field for it, so removing or signing out is the only way to take an account out of rotation.",
     args: {
       type: "object",
@@ -326,12 +427,12 @@ const tool = {
           type: "string",
           enum: ACTIONS,
           description:
-            "all = every account magpie knows, all providers; list = this package's five providers with check-in state; show = one account; rename = change its name; remove = delete it; import = Veyra into magpie; export = magpie as Veyra entries",
+            "all = every account magpie knows, all providers; list = this package's five providers with check-in state; checkin = today's check-in per account; show = one account; rename = change its name; remove = delete it; import = Veyra into magpie; export = magpie as Veyra entries",
         },
         account: {
           type: "string",
           description:
-            "which account (show/rename/remove): a key like codebuddy#a1b2c3, a provider name like codebuddy (only when it has one account), or an account name. Ambiguous input is rejected with the candidates.",
+            "which account (show/rename/remove require it; checkin takes it optionally): a key like codebuddy#a1b2c3, a provider name like codebuddy (only when it has one account), or an account name. Ambiguous input is rejected with the candidates.",
         },
         name: {
           type: "string",
@@ -356,6 +457,7 @@ const tool = {
       if (!dir) throw new Error("no directory in the tool's context")
       if (action === "all") return { output: doAll(dir) }
       if (action === "list") return { output: doList(dir) }
+      if (action === "checkin") return { output: doCheckin(dir, account) }
       if (action === "show") return { output: doShow(dir, account) }
       if (action === "rename") return { output: doRename(dir, account, name) }
       if (action === "remove") return { output: doRemove(dir, account, confirm) }
@@ -376,4 +478,4 @@ export async function VeyraToolsPlugin() {
   return { tool }
 }
 
-export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doAll, doImport, doExport, doList, doShow, doRename, doRemove, checked, readCheckins }
+export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doAll, doImport, doExport, doList, doCheckin, doShow, doRename, doRemove, checked, readCheckins }

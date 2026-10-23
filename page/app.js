@@ -68,6 +68,11 @@
     "providers-note",
     "cards",
     "cards-empty",
+    "checkin-h",
+    "checkin-note",
+    "checkin-how",
+    "checkin-list",
+    "checkin-where",
     "usage-h",
     "periods",
     "since",
@@ -367,6 +372,42 @@
     el["accounts-error"].textContent = w.accountsEmpty || ""
   }
 
+  /**
+   * 签到段：只说**能确定的事**。
+   *
+   * 页面读不到 `plugin-checkin.json`（沙箱只给 `providers:list` 与
+   * `usage:summary`），所以这里**不画任何"今日已签 N 个"的数字** ——
+   * 那会是把猜测写成人话。能确定的有三样：签到怎么发生、本包哪几家有
+   * 签到能力、结果要去哪儿看。
+   */
+  function paintCheckin() {
+    const w = t()
+    const ck = V.checkin(state, w)
+    el["checkin-h"].textContent = w.ckTitle
+    el["checkin-note"].textContent = ck.note
+    el["checkin-how"].textContent = ck.how
+    el["checkin-where"].textContent = ck.where
+    el["checkin-list"].replaceChildren(
+      ...ck.rows.map((r) => {
+        const li = document.createElement("li")
+        li.className = "ck-row"
+        li.dataset.pid = r.pid
+        li.dataset.on = r.on ? "1" : "0"
+        const name = document.createElement("span")
+        name.className = "ck-name"
+        name.textContent = r.name
+        const said = document.createElement("span")
+        said.className = "ck-said"
+        said.textContent = r.said
+        const badge = document.createElement("span")
+        badge.className = "badge " + (r.on ? "ok" : "off")
+        badge.textContent = r.on ? w.ckBadgeOn : w.ckBadgeOff
+        li.append(name, said, badge)
+        return li
+      }),
+    )
+  }
+
   function paintCards() {
     const w = t()
     el.cards.replaceChildren(...V.cards(state, w).map(cardNode))
@@ -437,6 +478,7 @@
     stamp()
     paintOverview()
     paintAccounts()
+    paintCheckin()
     paintQueue()
     paintCards()
     paintUsage()

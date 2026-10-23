@@ -203,6 +203,19 @@
       accModel: (n) => `${n} 个模型`,
       accCheckin: "可签到",
       accDetails: "详情",
+
+      // 签到段：说清“怎么签的”与“去哪看结果”，页面本身读不到结果
+      ckTitle: "每日签到",
+      ckNote: (can, all) => `本包 ${can} / ${all} 家有签到`,
+      ckBadgeOn: "可签到",
+      ckBadgeOff: "无签到",
+      ckHow:
+        "签到由 magpie 自己每天自动跑一次：按北京日、每个账号各签一次，当天失败稍后重投；开关在「设置 → 签到」里按 provider 控制。要立刻跑一轮，用 magpie 用量页的签到按钮。",
+      ckWhere:
+        "这一页读不到签到结果（页面沙箱只允许读用量汇总）。要看「今天谁签了、谁没签、失败原因」，让 agent 调 veyra_accounts 的 action=checkin。",
+      ckBrowser: "浏览器授权 · 自动签到",
+      ckPhone: "手机验证码 · 自动签到",
+      ckUnsupported: "这家没有签到接口",
       accHintRead: "插件页读不到 token；展开后是账号名、类型与模型数",
       badgeOn: "已注册",
       badgeOff: "未注册",
@@ -297,6 +310,19 @@
       accCheckin: "check-in",
       accDetails: "details",
       accHintRead: "the page cannot read tokens; rows show account name, type and model count",
+
+      // check-in: how it runs and where its result is, since this page cannot read the result
+      ckTitle: "Daily check-in",
+      ckNote: (can, all) => `${can} of this plugin's ${all} providers check in`,
+      ckBadgeOn: "check-in",
+      ckBadgeOff: "none",
+      ckHow:
+        "Check-in runs by itself once a day inside magpie: every account once per Beijing day, a failure tried again later that day. Per-provider switches live in Settings → Check-in; magpie's Usage page has the button to run it now.",
+      ckWhere:
+        "This page cannot read check-in results — its sandbox only allows the usage summary. To see who is in today, who is not, and why a run failed, have the agent call veyra_accounts with action=checkin.",
+      ckBrowser: "browser sign-in · daily check-in",
+      ckPhone: "SMS code · daily check-in",
+      ckUnsupported: "no check-in endpoint",
       badgeOn: "known",
       badgeOff: "not registered",
       badgeUnknown: "unknown",
@@ -632,6 +658,40 @@
     }
   }
 
+  /**
+   * 每日签到：**页面能看到什么、看不到什么都照实说**。
+   *
+   * magpie 自己每天自动签（`internal/provider/plugin_checkin.go:216`
+   * 的 `KeepPluginsCheckedIn`：按北京日逐号签、当天失败稍后重试，结果写进
+   * `plugin-checkin.json`），手动触发在 Usage 页。
+   *
+   * 但插件页是沙箱页（`connect-src 'none'`，只能 `providers:list` /
+   * `usage:summary`），**读不到那份文件、也发不出请求**。所以这里不编造
+   * “今天已签 3 个”，只做三件真能做的事：
+   *
+   * 1. 说清签到是怎么发生的（自动 + 手动在哪）；
+   * 2. 逐家列出本包这五家哪些有签到能力（静态能力，来自 PROVIDERS）；
+   * 3. 指路：要看“今天谁签到了”，用 `veyra_accounts action=checkin`。
+   */
+  function checkin(state, t) {
+    const r = roster(state)
+    const known = r === null ? PROVIDERS : PROVIDERS.filter((p) => (r ?? []).some((x) => x.id === p.id))
+    const rows = known.map((p) => ({
+      pid: p.id,
+      name: p.name,
+      on: Boolean(p.checkin),
+      // 有签到能力的家，登录方式不同，签到的失败模式也不同（loomy 要手机验证码）。
+      said: p.checkin ? (p.login === "phone" ? t.ckPhone : t.ckBrowser) : t.ckUnsupported,
+    }))
+    const can = rows.filter((x) => x.on).length
+    return {
+      note: t.ckNote(can, rows.length),
+      how: t.ckHow,
+      where: t.ckWhere,
+      rows,
+    }
+  }
+
   globalThis.VeyraPage = {
     VERSION,
     PERIODS,
@@ -645,6 +705,7 @@
     cards,
     loginQueue,
     accounts,
+    checkin,
     usage,
   }
 })()

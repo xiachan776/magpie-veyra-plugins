@@ -53,7 +53,7 @@ test("args 是纯 JSON Schema（宿主对 JSON Schema 不校验，得自己判�
   const t = (await tool()).veyra_accounts
   assert.equal(t.args.type, "object")
   assert.deepEqual(Object.keys(t.args.properties).sort(), ["account", "action", "confirm", "dryRun", "name"])
-  assert.deepEqual(t.args.properties.action.enum, ["all", "list", "show", "rename", "remove", "import", "export"])
+  assert.deepEqual(t.args.properties.action.enum, ["all", "list", "checkin", "show", "rename", "remove", "import", "export"])
   // 只有 action 是必需的：account/name 只对部分 action 有意义，由 checked() 按 action 判。
   assert.deepEqual(t.args.required, ["action"])
 })
@@ -230,4 +230,75 @@ test("import 在没有 Veyra 的机器上不炸（dryRun 只读到空）", async
 test("ctx 没有 directory 时抛错（不能瞎猜路径）", async () => {
   const t = (await tool()).veyra_accounts
   await assert.rejects(() => t.execute({ action: "list" }, {}), /no directory/)
+})
+
+test("checkin：今日已领 / 已在内 / 失败 / 只记着更早的 / 从没签过，五档分开", async () => {
+  const t = (await tool()).veyra_accounts
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const dir = playground(
+    {
+      codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "a@x.com" },
+      "codebuddy#b1": { type: "oauth", access: "a2", refresh: "r2", accountId: "b@x.com" },
+      "codebuddy#b2": { type: "oauth", access: "a3", refresh: "r3", accountId: "c@x.com" },
+      lobsterai: { type: "oauth", access: "a4", refresh: "r4", accountId: "d@x.com" },
+      loomy: { type: "api", key: "k", accountId: "e@x.com" },
+    },
+    {
+      "codebuddy|a@x.com": { day: today, outcome: "claimed", credit: 100, streak: 5 },
+      "codebuddy|b@x.com": { day: today, outcome: "done", msg: "already today" },
+      "codebuddy|c@x.com": { day: "2026-10-21", outcome: "claimed", credit: 50 },
+      "lobsterai|d@x.com": { day: today, outcome: "failed", msg: "captcha required" },
+    },
+  )
+  const out = (await t.execute({ action: "checkin" }, { directory: dir })).output
+  assert.match(out, /claimed today \(1\)/)
+  assert.match(out, /\+100/)
+  assert.match(out, /5-day streak/)
+  assert.match(out, /already in when checked \(1\)/)
+  assert.match(out, /not claimed \(1\)/)
+  assert.match(out, /captcha required/)
+  // 关键区分：10-21 的 claimed 不算今天。
+  assert.match(out, /only an earlier day on record \(1\)/)
+  assert.match(out, /not today/)
+  assert.match(out, /never checked in \(1\)/)
+  assert.match(out, /2 in today, 3 not/)
+})
+
+test("checkin：可选 account 收窄到一家 provider 或一个账号", async () => {
+  const t = (await tool()).veyra_accounts
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const dir = playground(
+    {
+      codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "a@x.com" },
+      "lobsterai": { type: "oauth", access: "b", refresh: "r2", accountId: "b@x.com" },
+    },
+    { "codebuddy|a@x.com": { day: today, outcome: "claimed", credit: 7 } },
+  )
+  const one = (await t.execute({ action: "checkin", account: "codebuddy" }, { directory: dir })).output
+  assert.match(one, /1 account/)
+  assert.match(one, /\+7/)
+  assert.doesNotMatch(one, /lobsterai/, "收窄到一家时不该提别家")
+  const other = (await t.execute({ action: "checkin", account: "lobsterai" }, { directory: dir })).output
+  assert.match(other, /never checked in \(1\)/)
+})
+
+test("checkin：没有账号时给出去哪儿登录的指引，不是空串", async () => {
+  const t = (await tool()).veyra_accounts
+  const out = (await t.execute({ action: "checkin" }, { directory: playground() })).output
+  assert.match(out, /no account/)
+  assert.match(out, /Providers page/)
+})
+
+test("checkin 是只读动作：不写 plugin-auth.json 也不写 plugin-checkin.json", async () => {
+  const t = (await tool()).veyra_accounts
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const dir = playground(
+    { codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "a@x.com" } },
+    { "codebuddy|a@x.com": { day: today, outcome: "claimed", credit: 1 } },
+  )
+  const auth = fs.readFileSync(path.join(dir, "plugin-auth.json"), "utf8")
+  const ck = fs.readFileSync(path.join(dir, "plugin-checkin.json"), "utf8")
+  await t.execute({ action: "checkin" }, { directory: dir })
+  assert.equal(fs.readFileSync(path.join(dir, "plugin-auth.json"), "utf8"), auth)
+  assert.equal(fs.readFileSync(path.join(dir, "plugin-checkin.json"), "utf8"), ck)
 })

@@ -549,3 +549,49 @@ body {
     display: none;
   }
 }
+
+/* 签到段：一行一家，名字 / 说明 / 能力徽标。 */
+.checkin-how,
+.checkin-where {
+  margin: 0 0 .55rem;
+  font-size: .82rem;
+  line-height: 1.6;
+  color: var(--fg-dim, #8a8f99);
+}
+.checkin-where {
+  margin: .55rem 0 0;
+  padding-top: .55rem;
+  border-top: 1px dashed var(--line, #2a2e36);
+}
+.checkin-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: .28rem;
+}
+.ck-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: .55rem;
+  padding: .34rem .5rem;
+  border-radius: 6px;
+  font-size: .84rem;
+}
+.ck-row[data-on="0"] {
+  opacity: .58;
+}
+.ck-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-said {
+  color: var(--fg-dim, #8a8f99);
+  font-size: .78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
