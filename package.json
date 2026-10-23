@@ -76,7 +76,8 @@
     ],
     "permissions": [
       "providers:list",
-      "usage:summary"
+      "usage:summary",
+      "credits:list"
     ],
     "options": {
       "period": "today"

@@ -210,11 +210,16 @@
       ckBadgeOn: "可签到",
       ckBadgeOff: "无签到",
       crTitle: "积分",
-      crNote: "余额不在这一页",
+      crBalanceNote: "每家余额由它自己的用量接口报出，由 magpie 代本站去问；下面每行是这个插件管的账号合起来的数。",
       crWhere:
         "每家的积分余额出自它自己的用量接口，只有 magpie 读得到 —— 在 magpie 的 Providers 页看。这里能给的是签到进账：让 agent 调 veyra_accounts 的 action=credits，会把今日进账、连续天数、到期日按账号列出来。",
       crByCheckin: "签到有进账，可用 action=credits 汇总",
       crNoCheckin: "无签到，也就没有签到进账",
+      crUnknown: "读不到余额",
+      crNoAccounts: "没有账号",
+      crNoBalance: "接口没报余额",
+      crAccounts: "个账号",
+      crFailed: "个读不到",
       ckHow:
         "签到由 magpie 自己每天自动跑一次：按北京日、每个账号各签一次，当天失败稍后重投；开关在「设置 → 签到」里按 provider 控制。要立刻跑一轮，用 magpie 用量页的签到按钮。",
       ckWhere:
@@ -323,11 +328,16 @@
       ckBadgeOn: "check-in",
       ckBadgeOff: "none",
       crTitle: "Credits",
-      crNote: "balances are not on this page",
+      crBalanceNote: "Each balance comes from that vendor's own usage endpoint, asked by magpie on this page's behalf; the figure on each row is its accounts added up.",
       crWhere:
         "Each provider's balance comes from its own usage endpoint, which only magpie reads — see magpie's Providers page. What is here is check-in credit: have the agent call veyra_accounts with action=credits to list today's credit, the streak and the expiry per account.",
       crByCheckin: "check-in credit usable, add it up with action=credits",
       crNoCheckin: "no check-in, so no check-in credit",
+      crUnknown: "balance not readable",
+      crNoAccounts: "no accounts",
+      crNoBalance: "no balance reported",
+      crAccounts: "accounts",
+      crFailed: "unreadable",
       ckHow:
         "Check-in runs by itself once a day inside magpie: every account once per Beijing day, a failure tried again later that day. Per-provider switches live in Settings → Check-in; magpie's Usage page has the button to run it now.",
       ckWhere:
@@ -705,26 +715,54 @@
   }
 
   /**
-   * 积分：这一页能说与不能说的。
+   * 积分：真实余额 + 签到进账。
    *
-   * 余额不在这里，而且不可能在这里：每家的余额出自 auth.usage
-   * (internal/plugin/host.js:2228 的 balance 与 windows[].amount/limit)，
-   * 那份数据只在宿主里经过一次就丢掉了，插件进程拿不到；页面沙箱也只被允许读
-   * usage:summary 与 providers:list 两个 key (internal/plugin/page.go:77)，
-   * 没有任何一条路能把余额送进来。
+   * 余额原先读不到 —— 它出自 auth.usage（host.js 的 balance 与
+   * windows[].amount/limit），只在宿主里过一手就丢，页面沙箱又被
+   * page.go 的 PageReads 限死。现在 magpie 侧新增了 credits:list 读法：
+   * 宿主代页面对每个账号调一次插件的 auth.usage，把 balance 与 windows
+   * 送进来。所以这一段能给真数字。
    *
-   * 所以这一段只做指路：余额去哪儿看，签到进账去哪儿算。写一个假的
-   * "积分 5000" 比不写更糟 —— 用户会拿它跟供应商页对账。
+   * 三种状态必须分开：读不到（宿主不支持或没给权限）/ 读到了但这家没账号 /
+   * 有数字。把"读不到"画成"0 积分"就是在替宿主撒谎。
    */
-  function credits(state, t) {
+  function credits(state, t, cr) {
     const r = roster(state)
-    const rows = (r === null ? PROVIDERS : PROVIDERS.filter((p) => r.some((x) => x.id === p.id))).map((p) => ({
-      pid: p.id,
-      name: p.name,
-      on: Boolean(p.checkin),
-      said: p.checkin ? t.crByCheckin : t.crNoCheckin,
-    }))
-    return { note: t.crNote, where: t.crWhere, rows }
+    const live = cr && Array.isArray(cr) ? cr : null
+    const byPid = new Map()
+    if (live) for (const p of live) byPid.set(p.id, p)
+
+    const rows = (r === null ? PROVIDERS : PROVIDERS.filter((p) => r.some((x) => x.id === p.id))).map((p) => {
+      const got = byPid.get(p.id)
+      const accts = got && Array.isArray(got.accounts) ? got.accounts : null
+      // balance 只加有数字的；缺一个就说缺，不按 0 算
+      let sum = 0
+      let counted = 0
+      let bad = 0
+      if (accts) {
+        for (const a of accts) {
+          if (a.error) bad++
+          const n = Number(a.balance)
+          if (a.balance !== "" && Number.isFinite(n)) {
+            sum += n
+            counted++
+          }
+        }
+      }
+      return {
+        pid: p.id,
+        name: p.name,
+        on: Boolean(p.checkin),
+        said: p.checkin ? t.crByCheckin : t.crNoCheckin,
+        // 读法是否给出这家（没账号的 provider 不会出现在 credits:list 里）
+        listed: Boolean(accts),
+        accounts: accts ? accts.length : 0,
+        counted,
+        bad,
+        sum,
+      }
+    })
+    return { note: t.crNote, where: t.crWhere, rows, live: Boolean(live) }
   }
   globalThis.VeyraPage = {
     VERSION,

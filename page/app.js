@@ -423,7 +423,7 @@
     const w = t()
     const cr = V.credits(state, w)
     el["credits-h"].textContent = w.crTitle
-    el["credits-note"].textContent = cr.note
+    el["credits-note"].textContent = w.crBalanceNote
     el["credits-where"].textContent = cr.where
     el["credits-list"].replaceChildren(
       ...cr.rows.map((r) => {
@@ -431,13 +431,28 @@
         li.className = "ck-row"
         li.dataset.pid = r.pid
         li.dataset.on = r.on ? "1" : "0"
+        // 三态写进 data-state，CSS 与测试都靠它区分，不靠文案猜
+        li.dataset.state = r.listed ? (r.counted > 0 ? "has" : "none") : "unknown"
         const name = document.createElement("span")
         name.className = "ck-name"
         name.textContent = r.name
+
+        const bal = document.createElement("span")
+        bal.className = "cr-bal"
+        if (!r.listed) {
+          // 读法没提这家：可能是没账号，也可能是宿主不认这个 key
+          bal.textContent = cr.live ? w.crNoAccounts : w.crUnknown
+        } else if (r.counted === 0) {
+          bal.textContent = w.crNoBalance
+        } else {
+          bal.textContent = V.fmt.num(r.sum)
+          bal.title = `${r.counted}/${r.accounts} ${w.crAccounts}`
+        }
+
         const said = document.createElement("span")
         said.className = "ck-said"
-        said.textContent = r.said
-        li.append(name, said)
+        said.textContent = r.bad ? `${r.said} · ${r.bad} ${w.crFailed}` : r.said
+        li.append(name, bal, said)
         return li
       }),
     )
@@ -562,6 +577,16 @@
       } catch (e) {
         state.summary = null
         state.usageError = msg(e)
+      }
+      // 余额要问各家厂商，会慢，而且旧一点的 magpie 根本不认这个 key。
+      // 失败不算错 —— 页面上把这一段说成"读不到"就好，不拖累别的段。
+      try {
+        const cr = await magpie.read("credits:list")
+        state.credits = Array.isArray(cr) ? cr : null
+        state.creditsError = null
+      } catch (e) {
+        state.credits = null
+        state.creditsError = msg(e)
       }
       loadAccounts()
       state.at = new Date()

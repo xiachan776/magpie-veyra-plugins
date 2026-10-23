@@ -572,7 +572,7 @@ body {
 }
 .ck-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.4fr);
   align-items: center;
   gap: .55rem;
   padding: .34rem .5rem;
@@ -581,6 +581,22 @@ body {
 }
 .ck-row[data-on="0"] {
   opacity: .58;
+}
+/* 余额：只有真拿到数字时才用等宽字形强调，三种"没有"都按弱化处理 */
+.cr-bal {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+.ck-row[data-state="has"] .cr-bal {
+  color: var(--fg, inherit);
+}
+.ck-row[data-state="none"] .cr-bal,
+.ck-row[data-state="unknown"] .cr-bal {
+  color: var(--fg-dim, #8a8f99);
+  font-weight: 400;
+  font-size: .78rem;
 }
 .ck-name {
   font-weight: 600;
