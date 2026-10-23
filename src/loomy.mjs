@@ -22,6 +22,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto"
 
 import { kept, explained, NPM } from "./kit.mjs"
+import { LOOMY_ICON } from "./icons.mjs"
 
 // ---- 常量 --------------------------------------------------------------------
 
@@ -548,6 +549,8 @@ export default async function LoomyPlugin() {
 
     auth: {
       provider: PROVIDER,
+      /** Providers 页这一行的图标；缺了会回落到 Veyra 的蓝 V。见 `icons/loomy.svg`。 */
+      icon: LOOMY_ICON,
 
       async loader(getAuth) {
         const a = await getAuth()

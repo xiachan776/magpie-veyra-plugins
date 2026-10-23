@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="CodeBuddy Intl">
+  <!--
+    CodeBuddy Intl（provider id `codebuddy-intl`）的 auth.icon。
+
+    与 CN 版**同一记号、换深靛底**。两个渠道端点与模型表都不同，但属于同一
+    厂商；在同一行高里再设计一套完全不同的图形，用户反而分不清谁是谁。
+    -->
+  <rect width="64" height="64" rx="15" fill="#2B3A8F"/>
+  <path d="M15 24 L15 19 L20 19" fill="none" stroke="#fff" stroke-width="4.4" stroke-linecap="round"/>
+  <path d="M20 40 L15 40 L15 45" fill="none" stroke="#fff" stroke-width="4.4" stroke-linecap="round"/>
+  <path d="M44 19 L49 19 L49 24" fill="none" stroke="#fff" stroke-width="4.4" stroke-linecap="round"/>
+  <path d="M49 40 L49 45 L44 45" fill="none" stroke="#fff" stroke-width="4.4" stroke-linecap="round"/>
+  <circle cx="32" cy="27" r="3.4" fill="#fff"/>
+  <path d="M32 33 L32 42" stroke="#fff" stroke-width="4.4" stroke-linecap="round"/>
+</svg>

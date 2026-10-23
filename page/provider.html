@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Veyra</title>
+    <!--
+      Providers 页每个 provider 编辑页底部的 Veyra 卡片（`magpie.panels` 的
+      `slot: "provider"`）。
+
+      它只认 `magpie.context.provider`（宿主通过 hello 交回来：
+      `{ id, name }`），所以同一个文件服务五家 —— 各自看到的是自己那一行。
+
+      沙箱是 `allow-scripts`：没有网络、没有 magpie 的 API，数据一律走
+      `magpie.read`，且只读 `package.json` 里 `magpie.permissions` 声明过的两项。
+    -->
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <div class="bar">
+      <span class="badge" id="badge" data-state="idle">…</span>
+      <h2 id="who">Veyra</h2>
+      <button type="button" id="refresh" class="ghost" title="Refresh">Refresh</button>
+    </div>
+    <p class="hint" id="hint"></p>
+    <div id="facts" class="facts"></div>
+    <p class="note" id="note" hidden></p>
+    <script src="_magpie/bridge.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

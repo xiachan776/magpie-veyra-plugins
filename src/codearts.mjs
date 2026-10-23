@@ -24,6 +24,7 @@ import { createHash, createHmac, createPrivateKey, generateKeyPairSync, randomBy
 import { createServer } from "node:http"
 
 import { hex, kept, explained, sleep, NPM } from "./kit.mjs"
+import { CODEARTS_ICON } from "./icons.mjs"
 
 // ---- 常量 --------------------------------------------------------------------
 
@@ -929,6 +930,8 @@ export default async function CodeArtsPlugin() {
 
     auth: {
       provider: PROVIDER,
+      /** Providers 页这一行的图标；缺了会回落到 Veyra 的蓝 V。见 `icons/codearts.svg`。 */
+      icon: CODEARTS_ICON,
       refreshLead: LEAD_MS,
       refresh: (auth) => renew(auth),
 

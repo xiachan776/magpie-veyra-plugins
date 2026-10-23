@@ -41,7 +41,7 @@
   "use strict"
 
   /** 与 `index.mjs` 的 `VERSION`、`package.json` 的 `version` 三处一致（由 check 脚本锁）。 */
-  const VERSION = "0.1.0"
+  const VERSION = "0.2.0"
 
   /** 与宿主 `usage.Summarize` 认的区间一致；顺序即 tab 顺序。 */
   const PERIODS = ["today", "7d", "30d"]
@@ -118,6 +118,15 @@
 
       overviewNote: (n, total) => `${n} / ${total} 个渠道已被 magpie 认识`,
 
+      // 聚合登录队列
+      queueTitle: "账号登录",
+      queueCount: (done, total) => `已注册 ${done} / ${total}`,
+      queueUnknown: (total) => `共 ${total} 家 · 注册状态未知`,
+      queueHint:
+        "一个入口列出五家，按建议顺序排好；点任一行右侧的「去登录」会在 magpie 的 Providers 页打开该渠道，那里才能真完成授权。",
+      queueLogin: "去登录",
+      queueGoHint: "在 magpie 的 Providers 页登录",
+
       // provider 段
       providersNote:
         "本页只读得到 provider 的 id 与名字；账号、额度、签到实况请在 magpie 的 Providers 页查看",
@@ -180,6 +189,15 @@
         "Entries in the plugin's own fallback table; the live catalog can be larger once signed in",
 
       overviewNote: (n, total) => `${n} of ${total} channels known to magpie`,
+
+      // Aggregated sign-in queue
+      queueTitle: "Accounts",
+      queueCount: (done, total) => `${done} of ${total} registered`,
+      queueUnknown: (total) => `${total} channels · registration unknown`,
+      queueHint:
+        "One entry lists all five in suggested order; the button on each row opens that channel on magpie's Providers page, which is the only place sign-in can actually finish.",
+      queueLogin: "Sign in",
+      queueGoHint: "Sign in on magpie's Providers page",
 
       providersNote:
         "A page can read only provider ids and names; accounts, quotas and check-in live on magpie's Providers page",
@@ -344,6 +362,81 @@
   }
 
   /**
+   * 聚合视图：一张卡片容纳五个渠道，按「该不该现在登录」排序。
+   *
+   * ## 为什么要有这个东西（这是页面的定位问题，不是排版问题）
+   *
+   * magpie 的 Providers 页把五家画成五张独立卡片，每张各带一个「登录」按钮 ——
+   * 用户实测的抱怨是「窗口太多了」。但**页面本身发不出登录**：桥只有
+   * hello/theme/options.get/options.set/read 五个方法，没有一个是「让宿主去 signIn」，
+   * 而且沙箱是 `connect-src 'none'`，连授权页都打不开。
+   *
+   * 所以这里能做的是**把五家收敛成一条有序队列**：一张卡片、一份「先登哪个」的次序、
+   * 每个渠道只留一个「去登录」的落点（仍然是宿主的 Providers 页，因为只有那里能真登）。
+   * 用户从一个入口看到「还有几家没登」，而不是在五张卡里自己找。
+   *
+   * ## 排序规则（越靠前越该先点）
+   *
+   * 1. 未注册到 magpie 的排最后 —— 它连按钮都点不了，放前面只会挡住能登的。
+   * 2. 其中「支持签到 / 模型更多」的优先：这些渠道登录后的收益更高。
+   * 3. 同一档内保持 PROVIDERS 的声明顺序，避免每次刷新次序乱跳（顺序跳动会让人
+   *    误以为状态变了）。
+   *
+   * `registered` 为 `null`（读不到 providers:list）时不排序，原样输出并在
+   * 卡片级说明里讲清楚「无法确认」，不假装算出了次序。
+   */
+  function loginQueue(state, t) {
+    const known = state.providers
+    const ids = new Set((known || []).map((p) => (p && typeof p.id === "string" ? p.id : "")))
+    const rank = (p) => {
+      if (known === null) return 1
+      if (!ids.has(p.id)) return 3
+      // 已注册：有签到能力的排前面（登录收益高），其余一档。
+      return p.checkin ? 0 : 1
+    }
+    const rows = PROVIDERS.map((p, i) => ({
+      i,
+      p,
+      known: known === null ? null : ids.has(p.id),
+      order: rank(p),
+    }))
+    rows.sort((a, b) => (a.order === b.order ? a.i - b.i : a.order - b.order))
+
+    const items = rows.map(({ p, known: isKnown }) => ({
+      id: p.id,
+      name: p.name,
+      host: p.host,
+      pid: p.id,
+      login: p.login === "phone" ? t.loginPhone : t.loginBrowser,
+      models: String(p.models),
+      checkin: p.checkin,
+      known: isKnown,
+      // 状态徽标：与 cards() 同一套语汇，避免同一个页面对同一件事用两种说法。
+      badge:
+        isKnown === null
+          ? { kind: "off", text: t.badgeUnknown }
+          : isKnown
+            ? { kind: "ok", text: t.badgeOn }
+            : { kind: "dead", text: t.badgeOff },
+    }))
+
+    const total = PROVIDERS.length
+    /** 已注册数：读不到时是 null，显示「?」而不是 0。 */
+    const done = known === null ? null : items.filter((x) => x.known).length
+
+    return {
+      items,
+      total,
+      done,
+      // 计数文案由纯函数算，渲染层不碰复数/语序。
+      count: done === null ? t.queueUnknown(total) : t.queueCount(done, total),
+      // 下一步该点哪个：只挑「已注册但还没登录的」没有意义（页面看不到登录态），
+      // 所以给的是「能登的渠道里排第一的那个」—— 用户从它开始就行。
+      hint: t.queueHint,
+    }
+  }
+
+  /**
    * 记账段。
    *
    * 这里出现 `.bar` 的两个指标都是**真算出来的比例**：错误率与缓存命中。
@@ -443,6 +536,7 @@
     fmt: { num, split, pct, money, clock, stamp },
     overview,
     cards,
+    loginQueue,
     usage,
   }
 })()

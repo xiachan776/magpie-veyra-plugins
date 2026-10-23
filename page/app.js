@@ -55,6 +55,10 @@
     "overview-h",
     "overview-note",
     "tiles",
+    "login-h",
+    "login-count",
+    "login-hint",
+    "login-queue",
     "providers-h",
     "providers-note",
     "cards",
@@ -159,6 +163,9 @@
   function cardNode(c) {
     const card = document.createElement("div")
     card.className = "card"
+    // provider 右键菜单（magpie.actions）靠它把对应的卡片highlight出来，
+    // 不用再去比标题文字。
+    if (c.pid) card.dataset.pid = c.pid
 
     const head = document.createElement("div")
     head.className = "card-head"
@@ -209,6 +216,72 @@
     return card
   }
 
+  /**
+   * 聚合队列的一行。
+   *
+   * 行内只有**一个**可点落点（右侧按钮），且它不是「直接登录」—— 页面发不出登录
+   * （桥没有 signIn 方法、沙箱连不上授权页）。它做的是把这一行的 provider 高亮出来，
+   * 并跳转到 Providers 段，由用户在那里完成授权。按钮上写「去登录」而不是「登录」，
+   * 是因为后者会让用户以为点完就登上了。
+   */
+  function queueNode(item, w) {
+    const li = document.createElement("li")
+    li.className = "queue-row"
+    li.dataset.pid = item.pid
+    if (item.known === false) li.dataset.dead = "1"
+
+    const name = document.createElement("span")
+    name.className = "q-name"
+    name.textContent = item.name
+
+    const login = document.createElement("span")
+    login.className = "q-login"
+    login.textContent = item.login
+
+    const badge = document.createElement("span")
+    badge.className = `badge ${item.badge.kind}`
+    badge.textContent = item.badge.text
+
+    const go = document.createElement("button")
+    go.type = "button"
+    go.className = "btn q-go"
+    go.textContent = w.queueLogin
+    go.title = item.known === false ? w.errNotRegistered : w.queueGoHint
+    // 未注册的渠道点了也没用（Providers 页压根没有这张卡），直接禁掉并说明原因。
+    go.disabled = item.known === false
+    go.addEventListener("click", () => {
+      highlight(item.pid)
+      if (el["providers-h"] && el["providers-h"].scrollIntoView) {
+        el["providers-h"].scrollIntoView({ block: "start", behavior: "smooth" })
+      }
+    })
+
+    li.append(name, login, badge, go)
+    return li
+  }
+
+  /**
+   * 把某个 provider 的卡片与队列行高亮 4 秒。
+   *
+   * 两处都要打，因为用户点的是队列行、而真正要操作的是下面的 Provider 卡片；
+   * 只高亮一处会让视线断开。用 `data-hit` 属性 + CSS outline，不动布局。
+   */
+  let hitTimer = null
+  function highlight(pid) {
+    const marks = [el["login-queue"], el.cards]
+    const hits = []
+    for (const box of marks) {
+      if (!box) continue
+      for (const n of box.querySelectorAll("[data-pid]")) {
+        n.removeAttribute("data-hit")
+        if (n.dataset.pid === pid) hits.push(n)
+      }
+    }
+    for (const n of hits) n.setAttribute("data-hit", "1")
+    if (hitTimer) clearTimeout(hitTimer)
+    hitTimer = hits.length ? setTimeout(() => { for (const n of hits) n.removeAttribute("data-hit") }, 4000) : null
+  }
+
   /* ---- 文案（与数据无关的那部分） ---------------------------------------- */
 
   function words() {
@@ -252,6 +325,15 @@
       state.providers === null
         ? ""
         : w.overviewNote(state.providers.length, V.PROVIDERS.length)
+  }
+
+  function paintQueue() {
+    const w = t()
+    const q = V.loginQueue(state, w)
+    el["login-h"].textContent = w.queueTitle
+    el["login-count"].textContent = q.count
+    el["login-hint"].textContent = q.hint
+    el["login-queue"].replaceChildren(...q.items.map((it) => queueNode(it, w)))
   }
 
   function paintCards() {
@@ -327,6 +409,7 @@
   function paint() {
     stamp()
     paintOverview()
+    paintQueue()
     paintCards()
     paintUsage()
   }
@@ -431,6 +514,37 @@
     save()
     void load()
   })
+
+  /**
+   * provider 行的右键菜单（`magpie.actions`，menu: "provider"）被点中的响应。
+   *
+   * 宿主在菜单被点时才 `postMessage` 过来，页面可能刚打开、也可能早就开着；
+   * bridge 会把**先于** `onAction` 注册到达的那一条排队（`acted`），所以这里
+   * 同步注册就能收全，不用自己再缓存。
+   *
+   * 两个 action 都只是「把焦点带到相关的一段」：`veyra-accounts` 滚到 Provider
+   * 卡片并按 id 高亮，`veyra-checkin` 滚到同一个地方并说明签到该去哪里开。
+   * 页面是只读的（`connect-src 'none'`，写盘也轮不到它），所以它不能真的触发
+   * 签到 —— 签到在 Providers 页那一行上。这里只做定位，并在页脚说清下一步。
+   */
+  if (typeof magpie.onAction === "function") {
+    magpie.onAction((a) => {
+      const id = a && a.provider && a.provider.id ? String(a.provider.id) : ""
+      const which = a && a.id
+      // 队列行与 Provider 卡片一起高亮：用户在队列里点的，但要去卡片上操作。
+      highlight(id)
+      if (el["providers-h"] && el["providers-h"].scrollIntoView) {
+        el["providers-h"].scrollIntoView({ block: "start", behavior: "smooth" })
+      }
+      if (which === "veyra-checkin" && el.footer) {
+        // 能签到的只有那几家（视图模型里的 checkin 标记），如实说，不假装点了就签。
+        const can = (V.PROVIDERS || []).filter((p) => p.checkin).map((p) => p.name)
+        el.footer.textContent = /^zh/i.test(lang || "")
+          ? `签到在 Providers 页那一行的勾选上开；支持签到的通道：${can.join("、")}。`
+          : `Check-in is turned on per provider on magpie's Providers page. Channels with check-in: ${can.join(", ")}.`
+      }
+    })
+  }
 
   if (typeof magpie.onTheme === "function") {
     magpie.onTheme((next) => {

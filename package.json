@@ -40,6 +40,37 @@
       "file": "page/index.html",
       "icon": "page/icon.svg"
     },
+    "panels": [
+      {
+        "slot": "provider",
+        "title": "Veyra",
+        "titles": {
+          "zh": "Veyra",
+          "zh-TW": "Veyra"
+        },
+        "file": "page/provider.html"
+      }
+    ],
+    "actions": [
+      {
+        "id": "veyra-accounts",
+        "menu": "provider",
+        "title": "Veyra: accounts and quotas",
+        "titles": {
+          "zh": "Veyra：账号与额度",
+          "zh-TW": "Veyra：帳號與額度"
+        }
+      },
+      {
+        "id": "veyra-checkin",
+        "menu": "provider",
+        "title": "Veyra: check in now",
+        "titles": {
+          "zh": "Veyra：立即签到",
+          "zh-TW": "Veyra：立即簽到"
+        }
+      }
+    ],
     "permissions": [
       "providers:list",
       "usage:summary"
@@ -47,6 +78,6 @@
     "options": {
       "period": "today"
     },
-    "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlZleXJhIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM0ZjdjZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3YjNmZjIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNSIgZmlsbD0idXJsKCNnKSIvPjxwYXRoIGQ9Ik0xNyAxOWwxNSAyNyAxNS0yNyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjYuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGcgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC45MiI+PGNpcmNsZSBjeD0iMjAiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iMjYiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iMzIiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iMzgiIGN5PSI1MiIgcj0iMi42Ii8+PGNpcmNsZSBjeD0iNDQiIGN5PSI1MiIgcj0iMi42Ii8+PC9nPjwvc3ZnPg=="
+    "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlZleXJhIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InZleXJhQnJhbmQiIHgxPSIwIiB5MT0iMCIgeDI9IjAuODUiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1NUFDRkYiLz48c3RvcCBvZmZzZXQ9IjAuNSIgc3RvcC1jb2xvcj0iIzNFOEZGNyIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzJBNkZFMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE1IiBmaWxsPSJ1cmwoI3ZleXJhQnJhbmQpIi8+PHBhdGggZD0iTTE3IDE4IEwzMiA0NiBMNDcgMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTQgMzMgQzIxIDI3IDI3IDM5IDM0IDMzIEM0MCAyOCA0NiAzMiA1MCAzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMuNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2Utb3BhY2l0eT0iMC45NSIvPjwvc3ZnPg=="
   }
 }

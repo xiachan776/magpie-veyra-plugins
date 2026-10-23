@@ -16,6 +16,7 @@
  */
 
 import { hex, kept, explained, envelope, sleep, NPM } from "./kit.mjs"
+import { CODEBUDDY_ICON, CODEBUDDY_INTL_ICON } from "./icons.mjs"
 
 const APP_VERSION = "2.0.0"
 const POLL_MS = 1000
@@ -678,6 +679,14 @@ function makePlugin(site) {
     },
     auth: {
       provider: site.id,
+      /**
+       * 这一行在 Providers 页的图标。
+       *
+       * 不设它的话 `host.js` 的 `iconOf()` 会回落到插件图标（Veyra 的蓝 V），
+       * codebuddy 与 codebuddy-intl 于是变成两张一模一样的卡片。
+       * 两个 id 共用同一记号、不同底色，见 `icons/*.svg`。
+       */
+      icon: site.id === "codebuddy-intl" ? CODEBUDDY_INTL_ICON : CODEBUDDY_ICON,
       refreshLead: LEAD_MS,
       refresh: (auth) => renew(tokens(auth)),
       async loader(getAuth) {

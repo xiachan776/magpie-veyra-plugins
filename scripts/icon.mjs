@@ -54,6 +54,92 @@ export function dataUriOf(svg) {
   return "data:image/svg+xml;base64," + Buffer.from(squeezed, "utf8").toString("base64")
 }
 
+/**
+ * 渠道图标：`icons/<id>.svg` → `src/icons.mjs` 里对应的常量。
+ *
+ * 单一真源是那五个 SVG，base64 只是产物。这里按 `PROVIDER_ICONS`
+ * （`src/icons.mjs` 自己导出）把两者对上，所以新增一家渠道只需三处：
+ * 建 SVG、在 `src/icons.mjs` 加常量与映射、在 auth hook 里 `icon:`。
+ */
+const iconsDir = path.join(root, "icons")
+const iconsModulePath = path.join(root, "src", "icons.mjs")
+
+/** 从 src/icons.mjs 里读出 `PROVIDER_ICONS` 映射（不 import，避免循环依赖与缓存）。 */
+function providerIconMap() {
+  const src = fs.readFileSync(iconsModulePath, "utf8")
+  const block = src.slice(src.indexOf("export const PROVIDER_ICONS"))
+  return [...block.matchAll(/["']?([\w-]+)["']?\s*:\s*["'](\w+)["']/g)].map((m) => ({
+    provider: m[1],
+    constant: m[2],
+  }))
+}
+
+/**
+ * 把 `src/icons.mjs` 里 `export const <name> =` 之后的那段 data URI 换掉。
+ *
+ * 用「常量名 + 到下一个 `export const` 之间」定位，而不是整文件正则替换，
+ * 这样常量顺序、注释、映射表都不会被动到。
+ */
+function replaceConstant(src, name, uri) {
+  const start = src.indexOf(`export const ${name} =`)
+  if (start < 0) return null
+  const next = src.indexOf("export const", start + 1)
+  const end = next < 0 ? src.length : next
+  const chunk = src.slice(start, end)
+  const replaced = chunk.replace(/["']data:image\/[^"']*["']/, JSON.stringify(uri))
+  // base64 里可能出现任何字母；`$` 不该出现在 data URI 中，但仍按字面量替换，
+  // 避免 String.replace 把 `$&` 这类序列当替换模式。
+  if (replaced === chunk) return null
+  return src.slice(0, start) + replaced + src.slice(end)
+}
+
+function syncProviderIcons(check) {
+  const map = providerIconMap()
+  if (map.length === 0) {
+    console.error("src/icons.mjs 里读不到 PROVIDER_ICONS")
+    return 1
+  }
+  let src = fs.readFileSync(iconsModulePath, "utf8")
+  let problems = 0
+  for (const { provider, constant } of map) {
+    const svgFile = path.join(iconsDir, `${provider}.svg`)
+    if (!fs.existsSync(svgFile)) {
+      console.error(`缺 ${path.relative(root, svgFile)}（provider ${provider} 的 auth.icon 源文件）`)
+      problems++
+      continue
+    }
+    const want = dataUriOf(fs.readFileSync(svgFile, "utf8"))
+    if (want.length > MAX_ICON) {
+      console.error(`${provider}.svg 内联后 ${want.length} 字节，超过 magpie 的 ${MAX_ICON} 字节上限`)
+      problems++
+      continue
+    }
+    const next = replaceConstant(src, constant, want)
+    if (next === null) {
+      // 常量不存在或已经与 SVG 完全一致（chunk 里没有可替换的 data URI 时返回 null）
+      if (!src.includes(`export const ${constant} =`)) {
+        console.error(`src/icons.mjs 里没有 export const ${constant}`)
+        problems++
+      }
+      continue
+    }
+    src = next
+  }
+  if (problems) return 1
+  const current = fs.readFileSync(iconsModulePath, "utf8")
+  if (current === src) {
+    console.log(`providers 图标与 icons/*.svg 同步（${map.length} 个）`)
+    return 0
+  }
+  if (check) {
+    console.error("src/icons.mjs 与 icons/*.svg 不同步，跑 `node scripts/icon.mjs` 修好")
+    return 1
+  }
+  fs.writeFileSync(iconsModulePath, src)
+  console.log(`providers 图标已更新（${map.length} 个）`)
+  return 0
+}
+
 function readPkg() {
   return JSON.parse(fs.readFileSync(pkgPath, "utf8"))
 }
@@ -66,21 +152,22 @@ function main(argv) {
     console.error(`icon.svg 内联后 ${want.length} 字节，超过 magpie 的 ${MAX_ICON} 字节上限`)
     return 1
   }
+  const iconProblems = syncProviderIcons(check)
   const pkg = readPkg()
   pkg.magpie ??= {}
   const have = pkg.magpie.icon ?? ""
+  let pkgProblems = 0
   if (have === want) {
     console.log(`magpie.icon 与 icon.svg 同步（${want.length} 字节）`)
-    return 0
-  }
-  if (check) {
+  } else if (check) {
     console.error("magpie.icon 与 icon.svg 不同步，跑 `node scripts/icon.mjs` 修好")
-    return 1
+    pkgProblems++
+  } else {
+    pkg.magpie.icon = want
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n")
+    console.log(`magpie.icon 已写入（${want.length} 字节）`)
   }
-  pkg.magpie.icon = want
-  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n")
-  console.log(`magpie.icon 已写入（${want.length} 字节）`)
-  return 0
+  return iconProblems || pkgProblems ? 1 : 0
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

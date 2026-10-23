@@ -52,8 +52,9 @@ test("工具名与 description 合宿主约束（host.js:1434 / toolList 截 200
 test("args 是纯 JSON Schema（宿主对 JSON Schema 不校验，得自己判）", async () => {
   const t = (await tool()).veyra_accounts
   assert.equal(t.args.type, "object")
-  assert.deepEqual(Object.keys(t.args.properties).sort(), ["action", "dryRun"])
-  assert.deepEqual(t.args.properties.action.enum, ["list", "import", "export"])
+  assert.deepEqual(Object.keys(t.args.properties).sort(), ["account", "action", "confirm", "dryRun", "name"])
+  assert.deepEqual(t.args.properties.action.enum, ["list", "show", "rename", "remove", "import", "export"])
+  // 只有 action 是必需的：account/name 只对部分 action 有意义，由 checked() 按 action 判。
   assert.deepEqual(t.args.required, ["action"])
 })
 
@@ -69,6 +70,55 @@ test("action 大小写不敏感（模型常写 LIST）", async () => {
   const t = (await tool()).veyra_accounts
   const r = await t.execute({ action: "LIST" }, { directory: playground() })
   assert.equal(typeof r.output, "string")
+})
+
+test("show / rename / remove 缺 account 时抛错，且错误里说清要什么", async () => {
+  const t = (await tool()).veyra_accounts
+  const ctx = { directory: playground() }
+  for (const action of ["show", "rename", "remove"]) {
+    await assert.rejects(() => t.execute({ action }, ctx), /needs account/, action)
+  }
+  await assert.rejects(() => t.execute({ action: "rename", account: "codebuddy" }, ctx), /needs name/)
+})
+
+test("全部管理动作都拒绝别家插件的账号，且不写盘", async () => {
+  const t = (await tool()).veyra_accounts
+  const dir = playground({ zcode: { type: "oauth", access: "a", refresh: "r", accountId: "zc" } })
+  const file = path.join(dir, "plugin-auth.json")
+  const before = fs.readFileSync(file, "utf8")
+  for (const args of [
+    { action: "show", account: "zcode" },
+    { action: "rename", account: "zcode", name: "x" },
+    { action: "remove", account: "zcode", confirm: true },
+  ]) {
+    await assert.rejects(() => t.execute(args, { directory: dir }), /only codebuddy/i, args.action)
+  }
+  assert.equal(fs.readFileSync(file, "utf8"), before, "拒绝路径不能改动文件")
+})
+
+test("rename 改完名字，后续 list 读到的是新名字", async () => {
+  const t = (await tool()).veyra_accounts
+  const dir = playground({ codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "138****1111" } })
+  const r1 = await t.execute({ action: "rename", account: "codebuddy", name: "主力号" }, { directory: dir })
+  assert.match(r1.output, /Renamed/)
+  const r2 = await t.execute({ action: "list" }, { directory: dir })
+  assert.match(r2.output, /主力号/)
+  assert.doesNotMatch(r2.output, /138\*\*\*\*1111/)
+})
+
+test("remove 默认只预览；必须显式 confirm 才真的删", async () => {
+  const t = (await tool()).veyra_accounts
+  const dir = playground({ codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "keep-me" } })
+  const preview = await t.execute({ action: "remove", account: "codebuddy" }, { directory: dir })
+  assert.match(preview.output, /Would remove/)
+  assert.match(preview.output, /cannot be undone/i)
+  const after = await t.execute({ action: "list" }, { directory: dir })
+  assert.match(after.output, /keep-me/, "不传 confirm 时绝不能真的删掉")
+
+  const gone = await t.execute({ action: "remove", account: "codebuddy", confirm: true }, { directory: dir })
+  assert.match(gone.output, /Removed/)
+  const empty = await t.execute({ action: "list" }, { directory: dir })
+  assert.match(empty.output, /No accounts/)
 })
 
 test("list 空库时说清下一步，不报错", async () => {

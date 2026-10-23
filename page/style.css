@@ -171,6 +171,79 @@ body {
   grid-column: 1 / -1;
 }
 
+/* ---- 聚合登录队列 -------------------------------------------------------- */
+
+.queue-hint {
+  margin: 0 0 9px;
+  font-size: 11.5px;
+  color: var(--magpie-faint, rgba(140, 144, 152, 0.9));
+}
+
+.queue {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
+  border-radius: 11px;
+  overflow: hidden;
+  background: var(--magpie-card, rgba(255, 255, 255, 0.04));
+}
+
+.queue-row {
+  display: grid;
+  /* 名字吃掉剩余宽度，其余三列各自收紧 —— 窄屏下名字先被省略，按钮永远完整可见。 */
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+
+.queue-row + .queue-row {
+  border-top: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.16));
+}
+
+/* 未注册到 magpie 的行整行压暗：它点不了，视觉上也不该和能登的一样重。 */
+.queue-row[data-dead="1"] {
+  opacity: 0.55;
+}
+
+/* 与 .card[data-hit] 同一套做法（outline 不占布局）：点队列行时两处一起亮。 */
+.queue-row[data-hit] {
+  outline: 2px solid var(--magpie-accent, #3E8FF7);
+  outline-offset: -2px;
+}
+
+.q-name {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-login {
+  font-size: 11.5px;
+  color: var(--magpie-muted, rgba(160, 164, 172, 0.95));
+  white-space: nowrap;
+}
+
+.q-go {
+  padding: 3px 11px;
+  font-size: 11.5px;
+}
+
+.q-go:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.q-go:disabled:hover {
+  border-color: var(--magpie-line, rgba(128, 128, 128, 0.22));
+  color: var(--magpie-fg, #e7e8ea);
+}
+
 /* ---- provider 卡 --------------------------------------------------------- */
 
 .grid {
@@ -187,6 +260,17 @@ body {
   border: 1px solid var(--magpie-line, rgba(128, 128, 128, 0.22));
   border-radius: 11px;
   background: var(--magpie-card, rgba(255, 255, 255, 0.04));
+}
+
+/*
+ * provider 行右键菜单（magpie.actions）点中后，对应的卡片高亮 4 秒。
+ *
+ * 用 outline 而不是改 border：outline 不占布局，高亮/取消时卡片不会跳动，
+ * 也不会把相邻卡片挤走。颜色取 magpie 的 accent，深浅两套主题下都对。
+ */
+.card[data-hit] {
+  outline: 2px solid var(--magpie-accent, #3E8FF7);
+  outline-offset: 2px;
 }
 
 .card-head {

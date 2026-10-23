@@ -1,0 +1,113 @@
+/**
+ * provider 面板的样式。
+ *
+ * ## 为什么不复用 style.css
+ *
+ * 大页面（`page/index.html`）是整页布局，带自己的顶栏、分栏、宽表格；
+ * 面板是嵌在 magpie **自己的 provider 编辑页**里的一小块，宽度由宿主决定
+ * （可能很窄），高度由内容决定。把整页样式表引进来只会把宿主的排版撑坏。
+ *
+ * ## 只用 magpie 的 token
+ *
+ * bridge.js 把主题色写成 `--magpie-<token>` 变量（bg/fg/muted/border/accent…），
+ * 直接引用它们就能在深浅两套主题下都对，且与宿主同色。**不写死颜色** ——
+ * 写死的颜色在另一套主题里就是一块脏色。
+ *
+ * 未设样式的元素会被 bridge 注入的 `:where()` 轻量样式接管（字体、按钮、
+ * 标题），所以这里只补布局与那几个自定义徽标。
+ */
+
+:root {
+  --vp-gap: 0.5rem;
+}
+
+body {
+  margin: 0;
+  padding: 0.75rem 0;
+  font-size: 13px;
+  color: var(--magpie-fg, inherit);
+  background: transparent;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--vp-gap);
+}
+
+.bar h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ghost {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 0.15rem 0.5rem;
+}
+
+/* 状态徽标：三种状态用边框/填充区分，不只靠颜色（色盲与高对比度都要能读） */
+.badge {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--magpie-border, #888);
+  color: var(--magpie-muted, inherit);
+  white-space: nowrap;
+}
+
+.badge[data-state="ok"] {
+  border-color: var(--magpie-accent, #3E8FF7);
+  color: var(--magpie-accent, #3E8FF7);
+}
+
+.badge[data-state="dead"] {
+  border-style: dashed;
+}
+
+.badge[data-state="foreign"],
+.badge[data-state="idle"] {
+  opacity: 0.7;
+}
+
+.hint {
+  margin: 0.4rem 0 0;
+  color: var(--magpie-muted, inherit);
+  font-size: 12px;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.fact .k {
+  color: var(--magpie-muted, inherit);
+  font-size: 12px;
+}
+
+.fact .v {
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  margin: 0.5rem 0 0;
+  font-size: 12px;
+  color: var(--magpie-danger, #d33);
+}

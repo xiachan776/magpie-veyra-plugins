@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="LobsterAI">
+  <!--
+    LobsterAI（有道，provider id `lobsterai`）的 auth.icon。
+
+    记号：两只螯 + 尾部三条节段。用橙红底（龙虾本身），不是 Veyra 的蓝 ——
+    这一行的「不是我家的东西」由颜色直接说出来。
+  -->
+  <rect width="64" height="64" rx="15" fill="#E8622C"/>
+  <!-- 两只螯 -->
+  <path d="M14 20 C20 17 25 20 24 26 C20 29 15 26 14 20 Z" fill="#fff"/>
+  <path d="M50 20 C44 17 39 20 40 26 C44 29 49 26 50 20 Z" fill="#fff"/>
+  <!-- 身体 -->
+  <rect x="26" y="22" width="12" height="16" rx="6" fill="#fff"/>
+  <!-- 尾部节段 -->
+  <path d="M28 42 L36 42" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M29 47 L35 47" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M31 52 L33 52" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
+</svg>

@@ -26,6 +26,7 @@ import { createServer } from "node:http"
 import { randomUUID, createHash } from "node:crypto"
 
 import { NPM, kept, explained, sleep, hex } from "./kit.mjs"
+import { LOBSTERAI_ICON } from "./icons.mjs"
 
 const API_BASE = "https://lobsterai-server.youdao.com"
 const PORTAL_BASE = "https://lobsterai.youdao.com"
@@ -849,6 +850,8 @@ export default async function LobsterAIPlugin() {
 
     auth: {
       provider: PROVIDER,
+      /** Providers 页这一行的图标；缺了会回落到 Veyra 的蓝 V。见 `icons/lobsterai.svg`。 */
+      icon: LOBSTERAI_ICON,
       refreshLead: LEAD_MS,
       refresh: (auth) => renewal(auth),
       methods: [

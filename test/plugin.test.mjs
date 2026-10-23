@@ -141,3 +141,27 @@ test("provider 图标合宿主要求（host.js:1850：https 或 data:image，≤
   assert.match(icon, /^(https:\/\/|data:image\/)/i, "相对路径会被 iconOf() 静默丢掉")
   assert.ok(icon.length <= 3 << 19)
 })
+
+/**
+ * 五家各一个 `auth.icon`。
+ *
+ * 不设它时 `host.js` 的 `iconOf()` 回落到 `magpie.icon`，于是 Providers 页
+ * 五张卡片长得一模一样（都是 Veyra 的蓝 V），只能靠文字分辨。这条测试把
+ * 「每一家都有自己的图标」钉住，同时验证图标能通过宿主的两道校验。
+ */
+test("每个 provider 都有独立的 auth.icon，且与插件图标不同", async () => {
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+  const pluginIcon = pkg.magpie?.icon
+  const seen = new Map()
+  for (const [id, fn] of PLUGINS) {
+    const { hooks } = await load(fn)
+    const icon = hooks.auth?.icon
+    assert.equal(typeof icon, "string", `${id}: 缺 auth.icon 会回落到插件图标，五家就分不出来了`)
+    assert.match(icon, /^(https:\/\/|data:image\/)/i, `${id}: 相对路径会被 iconOf() 静默丢掉`)
+    assert.ok(icon.length <= 3 << 19, `${id}: 图标 ${icon.length} 字节，超过 1.5 MB 上限`)
+    assert.notEqual(icon, pluginIcon, `${id}: 与插件图标相同，等于没设`)
+    assert.ok(!seen.has(icon), `${id}: 与 ${seen.get(icon)} 用了同一个图标`)
+    seen.set(icon, id)
+  }
+  assert.equal(seen.size, PLUGINS.length)
+})

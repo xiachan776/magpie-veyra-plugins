@@ -1,13 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="Veyra · magpie">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="Veyra">
   <!--
     页面图标：`magpie.page.icon` 指到这个文件。`internal/plugin/page.go` 的
-    `WindowPage` 会把它换算成相对页面目录的路径（`page/icon.svg` → `icon.svg`），
-    所以它必须与 index.html 同目录。
+    `WindowPage` 把它换算成相对页面目录的路径（`page/icon.svg` → `icon.svg`），
+    所以必须与 index.html 同目录。
 
-    只用 currentColor：图标要在深色/浅色两套主题下都成立，而页面里没有第二套配色。
-    也不引外部资源 —— CSP 是 `img-src 'self' data:`，外链会被直接拦掉。
-    三根递增的竖条 = 「多个渠道的用量」，与 usage 参考插件刻意区分（那是单根柱）。
+    ## 和插件图标是同一个造型
+
+    形状与根目录 `icon.svg`（`magpie.icon`，品牌蓝底白 V + 波浪）一致：
+    V 主体 + 贯穿波浪。差别只有渲染介质：
+
+    - 那个是 `<img>` 里的位图等价物，必须自带底色，所以是蓝底白 V；
+    - 这个是 magpie 侧边栏的行内图标，**只能 currentColor**，底色由侧边栏的
+      选中态/悬停态决定，自己画底色就会在某一套主题里糊掉。
+
+    因此在保持造型一致的前提下，只用描边（16 的 viewBox 下 2 的笔画粗细，
+    和侧边栏其它行内图标的视觉重量对齐）。它同时被 magpie 应用在深浅两套主题里，
+    所以绝不能写死颜色，也不能引外部资源 —— CSP 是 `img-src 'self' data:`。
   -->
-  <path d="M3 13V8M7 13V4M11 13V9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-  <circle cx="13.4" cy="3.2" r="1.4" fill="currentColor"/>
+  <path d="M2.6 4 L8 12 L13.4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1.6 7.5 C4 5.9 5.9 8.8 8 7.5 C10.1 6.1 11.7 7.7 14.2 6.7" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-opacity="0.9"/>
 </svg>

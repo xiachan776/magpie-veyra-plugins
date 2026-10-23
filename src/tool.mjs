@@ -35,7 +35,8 @@
 import fs from "node:fs"
 import path from "node:path"
 
-import { MAP, OURS, authPathOf, readAuthFile, importFromVeyra, exportToVeyra, dshHome } from "./veyra.mjs"
+import { MAP, OURS, dshHome, importFromVeyra, exportToVeyra } from "./veyra.mjs"
+import { list as manageList, preview as managePreview, remove as manageRemove, rename as manageRename } from "./manage.mjs"
 
 /** 五个 provider 的显示名，只用于把 key 说得像人话。 */
 const NAMES = {
@@ -46,7 +47,7 @@ const NAMES = {
   loomy: "Loomy",
 }
 
-const ACTIONS = ["list", "import", "export"]
+const ACTIONS = ["list", "show", "rename", "remove", "import", "export"]
 
 /**
  * 读签到记录：键是 `"<provider>|<accountId>"`（`pluginCheckinPath()` 的落盘形状）。
@@ -127,6 +128,103 @@ function doImport(dir, dryRun) {
   return out.join("\n")
 }
 
+/**
+ * 管理动作的共用入口：先给宿主文件加一句「改动会立即生效」的现实描述。
+ *
+ * magpie 的内存状态来自 `readAuthState()`，每次取用都会重读文件；因此改名或删除
+ * 之后不需要重启，下一次请求就按新内容走。这句话必须写出来，否则用户会以为
+ * 还要点一次「重载」。
+ */
+function say(lines) {
+  return lines.filter(Boolean).join("\n")
+}
+
+/**
+ * 列出账号与诊断（`list`）。
+ *
+ * 签到结果放在同一行：宿主把结果写在 `plugin-checkin.json`，键是
+ * `"<provider>|<accountId>"`（账号没有 accountId 时退化成账号 key，见
+ * `internal/provider/plugin_checkin.go:60-65`）。把两件事分开输出会让人
+ * 反复对照两个列表去找「这个号今天签没签」。
+ */
+function doList(dir) {
+  const r = manageList(dir)
+  if (!r.ok) return r.error
+  if (!r.rows.length) {
+    return "No accounts of this package's five providers are signed in yet. Sign in on magpie's Providers page, or run action=import to bring Veyra's accounts over."
+  }
+  const checkins = readCheckins(dir)
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const out = []
+  out.push(`${r.rows.length} account${r.rows.length === 1 ? "" : "s"} across ${OURS.length} providers:`)
+  let lastProvider = ""
+  for (const row of r.rows) {
+    if (row.provider !== lastProvider) {
+      out.push("")
+      out.push(`${row.name} (${row.provider})`)
+      lastProvider = row.provider
+    }
+    const exp = row.expiry === "none" ? "no expiry" : row.expiry === "expired" ? "EXPIRED" : new Date(row.expires).toISOString().slice(0, 16).replace("T", " ")
+    const rec = checkins[`${row.provider}|${row.accountId || row.key}`]
+    let said = "no check-in recorded"
+    if (rec && typeof rec === "object") {
+      said = `${rec.outcome ?? "?"} ${rec.day === today ? "today" : String(rec.day ?? "?")}`
+      if (Number(rec.credit) > 0) said += ` +${rec.credit}`
+      if (Number(rec.streak) > 0) said += ` (${rec.streak}-day streak)`
+      if (rec.msg) said += ` — ${oneLine(rec.msg, 60)}`
+    }
+    const flags = []
+    if (!row.hasSecret) flags.push("NO CREDENTIAL")
+    if (row.expiry === "expired") flags.push("expired")
+    out.push(`  ${row.key.padEnd(24)} ${(row.accountId || "(no account id)").padEnd(18)} ${exp.padEnd(10)} · ${said}${flags.length ? "  ← " + flags.join(", ") : ""}`)
+  }
+  const { broken, expired, multi } = r.summary
+  out.push("")
+  if (broken.length) out.push(`! ${broken.length} account(s) hold no credential: ${broken.join(", ")} — re-sign-in needed`)
+  if (expired.length) out.push(`! ${expired.length} account(s) expired: ${expired.join(", ")}`)
+  if (multi.length) out.push(`· several accounts: ${multi.join(", ")} (magpie rotates among them; no per-account switch exists)`)
+  return say(out)
+}
+
+/** 只看一个账号（`show`）。 */
+function doShow(dir, which) {
+  const p = managePreview(dir, which)
+  const exp = p.expiry === "none" ? "no expiry" : new Date(p.expires).toISOString()
+  return say([
+    `key: ${p.key}`,
+    `provider: ${p.provider}`,
+    `account: ${p.accountId || "(no account id)"}`,
+    `type: ${p.type || "(none)"}`,
+    `expiry: ${p.expiry} (${exp})`,
+    `credential: ${p.hasSecret ? "present" : "MISSING — this account cannot be used"}`,
+  ])
+}
+
+/** 改名（`rename`）。 */
+function doRename(dir, which, to) {
+  const r = manageRename(dir, which, to)
+  if (!r.changed) return `${r.key} is already named ${JSON.stringify(r.after)}; nothing changed.`
+  return say([
+    `Renamed ${r.key}: ${JSON.stringify(r.before || "(no account id)")} → ${JSON.stringify(r.after)}.`,
+    "magpie reads plugin-auth.json on each request, so the new name is in effect now.",
+  ])
+}
+
+/** 删除（`remove`）——默认只预览；必须显式 confirm 才真的删。 */
+function doRemove(dir, which, confirm) {
+  const r = manageRemove(dir, which, { confirm })
+  if (!r.confirmed) {
+    return say([
+      `Would remove ${r.key}  ${r.accountId || "(no account id)"}.`,
+      "Nothing was written. This cannot be undone — to actually delete it, call again with confirm=true.",
+    ])
+  }
+  return say([
+    `Removed ${r.key}  ${r.accountId || "(no account id)"}.`,
+    "This cannot be undone: the credential is gone. To get the account back, sign in to that provider again.",
+  ])
+}
+
 function doExport(dir) {
   const r = exportToVeyra({ dir })
   if (!r.entries.length) {
@@ -157,36 +255,61 @@ function checked(args) {
   if (!ACTIONS.includes(action)) {
     throw new Error(`action must be one of ${ACTIONS.join(", ")} (got ${JSON.stringify(args?.action ?? null)})`)
   }
-  return { action, dryRun: args?.dryRun === true }
+  const account = typeof args?.account === "string" ? args.account.trim() : ""
+  const name = typeof args?.name === "string" ? args.name.trim() : ""
+  if (["show", "rename", "remove"].includes(action) && !account) {
+    throw new Error(`action=${action} needs account (a key like codebuddy#a1b2c3, a provider, or an account name)`)
+  }
+  if (action === "rename" && !name) throw new Error("action=rename needs name (the new account name)")
+  return { action, account, name, dryRun: args?.dryRun === true, confirm: args?.confirm === true }
 }
 
 const tool = {
   veyra_accounts: {
     description:
-      "List this plugin's Veyra-signed-in accounts (CodeBuddy CN/Intl, LobsterAI, CodeArts, Loomy) with each one's expiry and today's check-in result, and move accounts between Veyra (~/.dsh) and magpie in either direction. " +
-      "action=list reads local files only; action=import brings Veyra's accounts into magpie's plugin-auth.json (idempotent, add dryRun=true to preview); " +
-      "action=export prints paste-ready Veyra refs and account entries without touching Veyra's files.",
+      "Manage the accounts this plugin signed in to magpie (CodeBuddy CN/Intl, LobsterAI, CodeArts, Loomy): list them with expiry and each one's check-in state, inspect one, rename it, or remove it; and move accounts between Veyra (~/.dsh) and magpie in either direction. " +
+      "action=list reads local files only; action=show inspects one account; action=rename sets its name; action=remove deletes it (without confirm=true it only reports which account would go — there is no undo); " +
+      "action=import brings Veyra's accounts into magpie's plugin-auth.json (idempotent); action=export prints paste-ready Veyra refs and account entries without touching Veyra's files. " +
+      "magpie has no per-account disable switch: the file has no field for it, so removing or signing out is the only way to take an account out of rotation.",
     args: {
       type: "object",
       properties: {
         action: {
           type: "string",
           enum: ACTIONS,
-          description: "list = accounts and check-in state; import = Veyra into magpie; export = magpie as Veyra entries",
+          description:
+            "list = all accounts with check-in state; show = one account; rename = change its name; remove = delete it; import = Veyra into magpie; export = magpie as Veyra entries",
+        },
+        account: {
+          type: "string",
+          description:
+            "which account (show/rename/remove): a key like codebuddy#a1b2c3, a provider name like codebuddy (only when it has one account), or an account name. Ambiguous input is rejected with the candidates.",
+        },
+        name: {
+          type: "string",
+          description: "rename only: the new account name, 1-64 characters",
         },
         dryRun: {
           type: "boolean",
-          description: "import only: report what would be added without writing plugin-auth.json",
+          description: "import only: report what would be added without writing anything",
+        },
+        confirm: {
+          type: "boolean",
+          description:
+            "remove only: actually delete. Without it the call only reports which account would go. Deletion cannot be undone.",
         },
       },
       required: ["action"],
       additionalProperties: false,
     },
     async execute(args, ctx) {
-      const { action, dryRun } = checked(args)
+      const { action, account, name, dryRun, confirm } = checked(args)
       const dir = ctx?.directory || ctx?.worktree
       if (!dir) throw new Error("no directory in the tool's context")
-      if (action === "list") return { output: list(dir) }
+      if (action === "list") return { output: doList(dir) }
+      if (action === "show") return { output: doShow(dir, account) }
+      if (action === "rename") return { output: doRename(dir, account, name) }
+      if (action === "remove") return { output: doRemove(dir, account, confirm) }
       if (action === "import") return { output: doImport(dir, dryRun) }
       return { output: doExport(dir) }
     },
@@ -204,4 +327,4 @@ export async function VeyraToolsPlugin() {
   return { tool }
 }
 
-export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doImport, doExport, checked, readCheckins }
+export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doImport, doExport, doList, doShow, doRename, doRemove, checked, readCheckins }
