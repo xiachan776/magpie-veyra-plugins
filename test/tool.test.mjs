@@ -255,7 +255,7 @@ test("checkin：今日已领 / 已在内 / 失败 / 只记着更早的 / 从没�
   assert.match(out, /\+100/)
   assert.match(out, /5-day streak/)
   assert.match(out, /already in when checked \(1\)/)
-  assert.match(out, /not claimed \(1\)/)
+  assert.match(out, /failed \(1\)/)
   assert.match(out, /captcha required/)
   // 关键区分：10-21 的 claimed 不算今天。
   assert.match(out, /only an earlier day on record \(1\)/)
@@ -301,4 +301,40 @@ test("checkin 是只读动作：不写 plugin-auth.json 也不写 plugin-checkin
   await t.execute({ action: "checkin" }, { directory: dir })
   assert.equal(fs.readFileSync(path.join(dir, "plugin-auth.json"), "utf8"), auth)
   assert.equal(fs.readFileSync(path.join(dir, "plugin-checkin.json"), "utf8"), ck)
+})
+
+test("checkin：宿主六类 outcome 分成三种性质，不把没额度说成失败", async () => {
+  const t = (await tool()).veyra_accounts
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const dir = playground(
+    {
+      codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "a@x.com" },
+      "codebuddy#b": { type: "oauth", access: "b", refresh: "r", accountId: "b@x.com" },
+      lobsterai: { type: "oauth", access: "c", refresh: "r", accountId: "c@x.com" },
+      codearts: { type: "oauth", access: "d", refresh: "r", accountId: "d@x.com" },
+    },
+    {
+      // ineligible：今天没额度 —— 不是错
+      "codebuddy|a@x.com": { day: today, outcome: "ineligible", msg: "quota used up" },
+      // captcha：要人来解，重投没用
+      "codebuddy|b@x.com": { day: today, outcome: "captcha", msg: "solve the captcha" },
+      // failed：真失败，宿主当天稍后会重投
+      "lobsterai|c@x.com": { day: today, outcome: "failed", msg: "500 from server" },
+      // inactive：账号闲置，也不算失败
+      "codearts|d@x.com": { day: today, outcome: "inactive" },
+    },
+  )
+  const out = (await t.execute({ action: "checkin" }, { directory: dir })).output
+
+  assert.match(out, /not due today \(2\)/, "ineligible 与 inactive 归入不到期，不算失败")
+  assert.match(out, /quota used up/)
+  assert.match(out, /needs you \(1\)/, "captcha 单独一档，要人处理")
+  assert.match(out, /solve the captcha/)
+  assert.match(out, /failed \(1\)/, "真失败单独一档")
+  assert.match(out, /500 from server/)
+
+  // 三档之间不能互相串：失败那一档里不该出现 captcha 的原因。
+  const failedBlock = out.slice(out.indexOf("failed (1)"))
+  assert.doesNotMatch(failedBlock, /captcha/)
+  assert.match(out, /0 in today, 4 not\./)
 })

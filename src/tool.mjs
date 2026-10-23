@@ -304,7 +304,7 @@ function doCheckin(dir, which) {
     return `${scope}no account of this package's five providers. Sign in on magpie's Providers page first.`
   }
 
-  const buckets = { claimed: [], done: [], other: [], none: [], stale: [] }
+  const buckets = { claimed: [], done: [], notDue: [], needsHand: [], failed: [], none: [], stale: [] }
   for (const row of rows) {
     // 与宿主 `whoOf()` 同序（internal/provider/plugin_checkin.go:60-65）：
     // 有 accountId 用它，否则退化成账号 key。
@@ -322,7 +322,14 @@ function doCheckin(dir, which) {
     const outcome = String(rec.outcome ?? "")
     if (outcome === "claimed") buckets.claimed.push({ row, rec })
     else if (outcome === "done") buckets.done.push({ row, rec })
-    else buckets.other.push({ row, rec })
+    // 宿主的六类（internal/plugin/host.js:2329）分三种性质：
+    //   ineligible / inactive —— 今天签不了，且不是错（次数用尽、账号闲置）
+    //   captcha              —— 要人来解，重投也没用
+    //   failed               —— 真失败，宿主当天稍后会重投
+    // 混成一档会把“今天没额度”说成“签到失败”，用户会去查根本没坏的东西。
+    else if (outcome === "ineligible" || outcome === "inactive") buckets.notDue.push({ row, rec })
+    else if (outcome === "captcha") buckets.needsHand.push({ row, rec })
+    else buckets.failed.push({ row, rec })
   }
 
   const out = []
@@ -336,9 +343,21 @@ function doCheckin(dir, which) {
     out.push(`already in when checked (${buckets.done.length})`)
     for (const { row, rec } of buckets.done) out.push(`  ${oneLine(row.key, 26).padEnd(26)} ${rec.msg ? oneLine(rec.msg, 60) : "already claimed today"}`)
   }
-  if (buckets.other.length) {
-    out.push(`not claimed (${buckets.other.length})`)
-    for (const { row, rec } of buckets.other) {
+  if (buckets.notDue.length) {
+    out.push(`not due today (${buckets.notDue.length})`)
+    for (const { row, rec } of buckets.notDue) {
+      out.push(`  ${oneLine(row.key, 26).padEnd(26)} ${String(rec.outcome ?? "?")}${rec.msg ? " — " + oneLine(rec.msg, 70) : ""}`)
+    }
+  }
+  if (buckets.needsHand.length) {
+    out.push(`needs you (${buckets.needsHand.length})`)
+    for (const { row, rec } of buckets.needsHand) {
+      out.push(`  ${oneLine(row.key, 26).padEnd(26)} captcha${rec.msg ? " — " + oneLine(rec.msg, 70) : ""}`)
+    }
+  }
+  if (buckets.failed.length) {
+    out.push(`failed (${buckets.failed.length})`)
+    for (const { row, rec } of buckets.failed) {
       out.push(`  ${oneLine(row.key, 26).padEnd(26)} ${String(rec.outcome ?? "?")}${rec.msg ? " — " + oneLine(rec.msg, 70) : ""}`)
     }
   }

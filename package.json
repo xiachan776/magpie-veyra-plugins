@@ -64,10 +64,10 @@
       {
         "id": "veyra-checkin",
         "menu": "provider",
-        "title": "Veyra: check in now",
+        "title": "Veyra: check-in status",
         "titles": {
-          "zh": "Veyra：立即签到",
-          "zh-TW": "Veyra：立即簽到"
+          "zh": "Veyra：签到情况",
+          "zh-TW": "Veyra：簽到情況"
         }
       }
     ],

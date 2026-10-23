@@ -627,15 +627,19 @@
       const which = a && a.id
       // 队列行与 Provider 卡片一起高亮：用户在队列里点的，但要去卡片上操作。
       highlight(id)
-      if (el["providers-h"] && el["providers-h"].scrollIntoView) {
-        el["providers-h"].scrollIntoView({ block: "start", behavior: "smooth" })
-      }
-      if (which === "veyra-checkin" && el.footer) {
-        // 能签到的只有那几家（视图模型里的 checkin 标记），如实说，不假装点了就签。
+      // 两个入口各自滚到自己那一段：账号 → Provider 卡片，签到 → 签到段。
+      // 之前两个都滚到 Provider 段，点「签到」落在一个没有签到信息的地方。
+      const target = which === "veyra-checkin" ? el["checkin-h"] : el["providers-h"]
+      if (target && target.scrollIntoView) target.scrollIntoView({ block: "start", behavior: "smooth" })
+      if (which === "veyra-checkin") {
+        // 这个菜单项只是「带我去签到那一段」：magpie 的菜单只能打开插件页，
+        // 不能执行命令（internal/plugin/page.go:53），所以照实说下一步在哪。
         const can = (V.PROVIDERS || []).filter((p) => p.checkin).map((p) => p.name)
-        el.footer.textContent = /^zh/i.test(lang || "")
-          ? `签到在 Providers 页那一行的勾选上开；支持签到的通道：${can.join("、")}。`
-          : `Check-in is turned on per provider on magpie's Providers page. Channels with check-in: ${can.join(", ")}.`
+        el["checkin-how"].dataset.hit = "1"
+        setTimeout(() => delete el["checkin-how"].dataset.hit, 4000)
+        el["checkin-where"].textContent = /^zh/i.test(lang || "")
+          ? `支持签到的通道：${can.join("、")}。要现在跑一轮，用 magpie 用量页的签到按钮；要看今天谁签了，让 agent 调 veyra_accounts action=checkin。`
+          : `Channels with check-in: ${can.join(", ")}. To run one now, use the button on magpie's Usage page; to see who is in today, have the agent call veyra_accounts action=checkin.`
       }
     })
   }
