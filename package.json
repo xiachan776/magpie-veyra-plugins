@@ -28,7 +28,10 @@
   "scripts": {
     "test": "node --test",
     "icon": "node scripts/icon.mjs",
-    "icon:check": "node scripts/icon.mjs --check"
+    "icon:check": "node scripts/icon.mjs --check",
+    "upstream": "node scripts/upstream.mjs --dir ../new-personal",
+    "upstream:check": "node scripts/upstream.mjs --dir ../new-personal --check",
+    "upstream:write": "node scripts/upstream.mjs --dir ../new-personal --write"
   },
   "magpie": {
     "page": {
