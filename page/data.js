@@ -37,7 +37,7 @@
   "use strict"
 
   /** 与 `index.mjs` 的 `VERSION`、`package.json` 的 `version` 三处一致（由 check 脚本锁）。 */
-  const VERSION = "0.2.5"
+  const VERSION = "0.2.6"
 
   /** 与宿主 `usage.Summarize` 认的区间一致；顺序即 tab 顺序。 */
   const PERIODS = ["today", "7d", "30d"]

@@ -1,6 +1,6 @@
 {
   "name": "magpie-veyra-auth",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Magpie provider plugins for the subscriptions Veyra signs in to and magpie has no provider for: CodeBuddy (CN and Intl), LobsterAI, CodeArts and Loomy",
   "type": "module",
   "main": "./index.mjs",
