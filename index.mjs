@@ -54,4 +54,4 @@ export { VeyraToolsPlugin } from "./src/tool.mjs"
  * 的，`fs` 读相对路径依赖 `import.meta.url` 的解析方式，Bun 下与 Node 下对
  * 打包目录的处置不同，读失败会让整个插件加载失败（代价远大于收益）。
  */
-export const VERSION = "0.2.4"
+export const VERSION = "0.2.5"
