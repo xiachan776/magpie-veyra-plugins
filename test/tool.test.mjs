@@ -53,7 +53,7 @@ test("args 是纯 JSON Schema（宿主对 JSON Schema 不校验，得自己判�
   const t = (await tool()).veyra_accounts
   assert.equal(t.args.type, "object")
   assert.deepEqual(Object.keys(t.args.properties).sort(), ["account", "action", "confirm", "dryRun", "name"])
-  assert.deepEqual(t.args.properties.action.enum, ["list", "show", "rename", "remove", "import", "export"])
+  assert.deepEqual(t.args.properties.action.enum, ["all", "list", "show", "rename", "remove", "import", "export"])
   // 只有 action 是必需的：account/name 只对部分 action 有意义，由 checked() 按 action 判。
   assert.deepEqual(t.args.required, ["action"])
 })

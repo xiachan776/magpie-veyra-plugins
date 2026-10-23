@@ -34,7 +34,7 @@ test("队列包含全部五家，且 id 不重复", () => {
   const q = V.loginQueue({ providers: [] }, zh)
   assert.equal(q.items.length, 5)
   assert.equal(q.total, 5)
-  const ids = q.items.map((x) => x.id)
+  const ids = q.items.map((x) => x.pid)
   assert.equal(new Set(ids).size, 5)
   // 与静态快照同源，不是另抄一份。
   assert.deepEqual([...ids].sort(), V.PROVIDERS.map((p) => p.id).sort())
@@ -43,7 +43,7 @@ test("队列包含全部五家，且 id 不重复", () => {
 test("排序：已注册且有签到 → 已注册 → 未注册", () => {
   // 只让 loomy 与 codebuddy-intl 注册；loomy 有签到、intl 没有。
   const q = V.loginQueue({ providers: [{ id: "loomy" }, { id: "codebuddy-intl" }] }, zh)
-  const order = q.items.map((x) => x.id)
+  const order = q.items.map((x) => x.pid)
   // 有签到的 loomy 必须排第一（同档里它是唯一注册且有签到的）
   assert.equal(order[0], "loomy")
   // codebuddy-intl 虽已注册但没有签到，应排在 loomy 之后、未注册之前
@@ -57,7 +57,7 @@ test("排序：已注册且有签到 → 已注册 → 未注册", () => {
 test("同一档内保持声明顺序（次序稳定，不随刷新跳动）", () => {
   const all = V.PROVIDERS.map((p) => ({ id: p.id }))
   const q = V.loginQueue({ providers: all }, zh)
-  const firstTier = q.items.filter((x) => x.checkin).map((x) => x.id)
+  const firstTier = q.items.filter((x) => x.checkin).map((x) => x.pid)
   const declared = V.PROVIDERS.filter((p) => p.checkin).map((p) => p.id)
   assert.deepEqual(firstTier, declared)
 })
@@ -66,7 +66,7 @@ test("读不到 provider 列表时不排序，徽标统一 unknown", () => {
   const q = V.loginQueue({ providers: null }, zh)
   assert.equal(q.done, null)
   // 原样输出声明顺序
-  assert.deepEqual(q.items.map((x) => x.id), V.PROVIDERS.map((p) => p.id))
+  assert.deepEqual(q.items.map((x) => x.pid), V.PROVIDERS.map((p) => p.id))
   for (const it of q.items) {
     assert.equal(it.known, null)
     assert.equal(it.badge.kind, "off")
@@ -77,7 +77,7 @@ test("读不到 provider 列表时不排序，徽标统一 unknown", () => {
 test("未注册的行标 dead，已注册的标 ok", () => {
   const q = V.loginQueue({ providers: [{ id: "codearts" }] }, zh)
   for (const it of q.items) {
-    if (it.id === "codearts") {
+    if (it.pid === "codearts") {
       assert.equal(it.known, true)
       assert.equal(it.badge.kind, "ok")
       assert.equal(it.badge.text, zh.badgeOn)
@@ -99,8 +99,8 @@ test("计数文案区分「未知」与「0 家已注册」", () => {
 test("登录方式逐家如实：loomy 是手机验证码，其余是浏览器授权", () => {
   const q = V.loginQueue({ providers: [] }, zh)
   for (const it of q.items) {
-    const declared = V.PROVIDERS.find((p) => p.id === it.id)
+    const declared = V.PROVIDERS.find((p) => p.id === it.pid)
     const want = declared.login === "phone" ? zh.loginPhone : zh.loginBrowser
-    assert.equal(it.login, want, `${it.id} 的登录方式与静态快照不一致`)
+    assert.equal(it.login, want, `${it.pid} 的登录方式与静态快照不一致`)
   }
 })

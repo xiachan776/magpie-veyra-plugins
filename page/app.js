@@ -59,6 +59,11 @@
     "login-count",
     "login-hint",
     "login-queue",
+    "accounts-h",
+    "accounts-note",
+    "accounts-hint",
+    "accounts-groups",
+    "accounts-error",
     "providers-h",
     "providers-note",
     "cards",
@@ -87,6 +92,14 @@
     summary: null,
     usageError: null,
     at: null,
+    /**
+     * 全部账号：`null` = 读不到，`[]` = 读到了但一家都没有。
+     *
+     * 形状与 `plugin-providers.json` 的分组视图一致（见 `src/accounts.mjs`）。
+     * 来源不是 `magpie.read` —— 页面桥只认两个白名单 key，读不到账号文件。
+     */
+    accounts: null,
+    accountsError: null,
   }
 
   let lang = "en"
@@ -320,11 +333,8 @@
   function paintOverview() {
     const w = t()
     el.tiles.replaceChildren(...V.overview(state, w).map(tileNode))
-    // 读不到列表时不写「0 / 5 个渠道已被认识」：那会把「不知道」说成「一个都没有」。
-    el["overview-note"].textContent =
-      state.providers === null
-        ? ""
-        : w.overviewNote(state.providers.length, V.PROVIDERS.length)
+    // 读不到名册时一个字都不写：把「不知道」说成「0 家」是替宿主圆谎。
+    el["overview-note"].textContent = V.overviewNote(state, w)
   }
 
   function paintQueue() {
@@ -334,22 +344,39 @@
     el["login-count"].textContent = q.count
     el["login-hint"].textContent = q.hint
     el["login-queue"].replaceChildren(...q.items.map((it) => queueNode(it, w)))
+    el["login-queue"].hidden = q.items.length === 0
+  }
+
+  /**
+   * 全部账号段 —— 页面读不到账号，所以这一段是**一句话的说明**，不是一份列表。
+   *
+   * 上一版把这里做成了账号列表，数据假设「来自 plugin-providers.json」。那假设是错的：
+   * 页面桥根本没有文件通道（`providers:list` 只给 id+name，`read` 白名单只有两个 key），
+   * 所以那一版在真宿主里永远显示「读不到」。现在保留段落、说明原因并指向真正能看
+   * 账号的地方 —— 比一个永远空的列表有用。
+   *
+   * 不显示「0 个账号」：那是把「读不到」说成「一个都没有」（这条规矩与记账段一致）。
+   */
+  function paintAccounts() {
+    const w = t()
+    el["accounts-h"].textContent = w.accountsTitle
+    el["accounts-note"].textContent = ""
+    el["accounts-hint"].textContent = w.accountsHint
+    el["accounts-groups"].replaceChildren()
+    el["accounts-error"].hidden = !w.accountsEmpty
+    el["accounts-error"].textContent = w.accountsEmpty || ""
   }
 
   function paintCards() {
     const w = t()
     el.cards.replaceChildren(...V.cards(state, w).map(cardNode))
 
-    // 空态只在真的没有可用信息时占位：读不到 → 说读不到；五个全不在 → 给诊断。
-    if (state.providers === null) {
-      el["cards-empty"].hidden = false
-      el["cards-empty"].textContent = w.cardsEmptyUnknown
-    } else {
-      const known = new Set(state.providers.map((p) => (p && p.id) || ""))
-      const hit = V.PROVIDERS.filter((p) => known.has(p.id)).length
-      el["cards-empty"].hidden = hit > 0
-      el["cards-empty"].textContent = hit > 0 ? "" : w.cardsEmpty
-    }
+    // 三种状态分开说，不能合并：读不到（不知道）/ 读到了但一家没有 / 有内容。
+    // `state.providers === null` 与 `[]` 是不同的事，混起来就是在替宿主圆谎。
+    const unknown = state.providers === null
+    const empty = !unknown && state.providers.length === 0
+    el["cards-empty"].hidden = !(unknown || empty)
+    el["cards-empty"].textContent = unknown ? w.cardsEmptyUnknown : empty ? w.cardsEmpty : ""
     el["providers-note"].textContent = w.providersNote
   }
 
@@ -409,12 +436,32 @@
   function paint() {
     stamp()
     paintOverview()
+    paintAccounts()
     paintQueue()
     paintCards()
     paintUsage()
   }
 
   /* ---- 取数 -------------------------------------------------------------- */
+
+  /**
+   * 读账号 —— **页面做不到，这里直说。**
+   *
+   * 曾经尝试走 `options.get`，那条路是错的：
+   * - `options` 读的是 `plugins.json` 里本插件的 `options` 字段，**只有 `options.set`
+   *   能写它**，而 `set` 走 `SetOptions` → `Restart()`，**整包插件重启**；
+   * - 更糟的是 `options` 是用户在设置里能改、能「恢复默认」的东西，把账号快照混进去，
+   *   重置一次选项就把账号列表清了。
+   *
+   * 桥给的五种能力里没有任何一种能读账号：`providers:list` 只有 `{id, name}`
+   * （宿主注释写明 "no key, no account, no address"），`read` 的白名单也只有那两个 key。
+   *
+   * ⇒ 所以这一段恒为「读不到」，并解释原因与去哪里看。不编造、不显示「0 个账号」。
+   */
+  function loadAccounts() {
+    state.accounts = null
+    state.accountsError = null
+  }
 
   async function load() {
     // 60s 轮询 + 手动刷新可能撞在一起；重叠的第二次读没有意义，直接跳过。
@@ -438,6 +485,7 @@
         state.summary = null
         state.usageError = msg(e)
       }
+      loadAccounts()
       state.at = new Date()
       paint()
     } finally {
@@ -478,6 +526,10 @@
     el["cards-empty"].textContent = w.cardsEmptyUnknown
     el["overview-note"].textContent = ""
     el["providers-note"].textContent = w.providersNote
+    el["accounts-note"].textContent = ""
+    el["accounts-hint"].textContent = w.accountsHint
+    el["accounts-error"].hidden = false
+    el["accounts-error"].textContent = w.noHost
     return
   }
 

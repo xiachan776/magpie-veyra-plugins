@@ -37,6 +37,7 @@ import path from "node:path"
 
 import { MAP, OURS, dshHome, importFromVeyra, exportToVeyra } from "./veyra.mjs"
 import { list as manageList, preview as managePreview, remove as manageRemove, rename as manageRename } from "./manage.mjs"
+import { readProviders } from "./accounts.mjs"
 
 /** 五个 provider 的显示名，只用于把 key 说得像人话。 */
 const NAMES = {
@@ -47,7 +48,7 @@ const NAMES = {
   loomy: "Loomy",
 }
 
-const ACTIONS = ["list", "show", "rename", "remove", "import", "export"]
+const ACTIONS = ["all", "list", "show", "rename", "remove", "import", "export"]
 
 /**
  * 读签到记录：键是 `"<provider>|<accountId>"`（`pluginCheckinPath()` 的落盘形状）。
@@ -112,6 +113,53 @@ function list(dir) {
   }
   const head = `${total} account${total === 1 ? "" : "s"} across ${OURS.length} providers (${dshHome()} is Veyra's home):`
   return [head, ...lines].join("\n")
+}
+
+/**
+ * **全部**账号总览：magpie 认识的每一家、每一个号，不分归属。
+ *
+ * 与上面 `list()` 的分工：
+ *
+ * | | `action=list` | `action=all` |
+ * | --- | --- | --- |
+ * | 范围 | 本包五家 | magpie 全部 20 家 |
+ * | 来源 | `plugin-auth.json`（有凭据、能判过期） | `plugin-providers.json`（与 Providers 页同源） |
+ * | 用途 | 管本包自己的号 | 回答「供应商页里那些号在插件里看不看得见」 |
+ *
+ * 用户的原话是「这里的账号应该和供应商里面的同步」—— 所以 `action=all` 的口径
+ * 必须与 Providers 页**逐数字对齐**：同样是 20 家、6 家已登录、11 个号。
+ * 对不齐就是 bug，不是显示差异。
+ *
+ * 每家都列出来（含 0 账号的 14 家）：裁剪成「有号的才显示」会让人以为插件只认识
+ * 那几家，而供应商页是全列的。**空**和**缺**是两件事，这里必须说清楚。
+ */
+function doAll(dir) {
+  const r = readProviders(dir)
+  if (!r.ok) return `${r.error}; nothing is listed. (file: ${r.file})`
+  const lines = []
+  lines.push(`${r.summary.accounts} account${r.summary.accounts === 1 ? "" : "s"} across ${r.summary.providers} providers, ${r.summary.signedIn} signed in — the same numbers magpie's Providers page shows:`)
+  for (const p of r.providers) {
+    // `signedIn` 与 `accounts.length` 说话不一致时如实标出来。两者来自同一个文件，
+    // 只有主程序写到一半时才会出现，值得看见而不是被悄悄抹平。
+    const tags = [`${p.accountCount} account${p.accountCount === 1 ? "" : "s"}`]
+    if (p.signedIn) tags.push("signed in")
+    else if (p.accountCount) tags.push("has accounts but signedIn=false")
+    if (p.checkin) tags.push("check-in")
+    lines.push("")
+    lines.push(`${p.name} (${p.id}) — ${tags.join(", ")}`)
+    if (!p.accountCount) {
+      lines.push("  (no accounts)")
+      continue
+    }
+    for (const a of p.accounts) {
+      const suffix = a.type ? `  ${a.type}` : ""
+      const models = a.modelCount ? `  ${a.modelCount} model${a.modelCount === 1 ? "" : "s"}` : ""
+      lines.push(`  · ${a.key}  ${a.name}${suffix}${models}`)
+    }
+  }
+  lines.push("")
+  lines.push(`source: ${r.file}`)
+  return lines.join("\n")
 }
 
 function doImport(dir, dryRun) {
@@ -267,8 +315,8 @@ function checked(args) {
 const tool = {
   veyra_accounts: {
     description:
-      "Manage the accounts this plugin signed in to magpie (CodeBuddy CN/Intl, LobsterAI, CodeArts, Loomy): list them with expiry and each one's check-in state, inspect one, rename it, or remove it; and move accounts between Veyra (~/.dsh) and magpie in either direction. " +
-      "action=list reads local files only; action=show inspects one account; action=rename sets its name; action=remove deletes it (without confirm=true it only reports which account would go — there is no undo); " +
+      "Look at and manage magpie's accounts. action=all lists every account magpie knows, across all providers, with the same counts magpie's Providers page shows; the other actions work on the five providers this plugin signs in to (CodeBuddy CN/Intl, LobsterAI, CodeArts, Loomy). " +
+      "action=list shows those five with expiry and check-in state; action=show inspects one account; action=rename sets its name; action=remove deletes it (without confirm=true it only reports which account would go — there is no undo); " +
       "action=import brings Veyra's accounts into magpie's plugin-auth.json (idempotent); action=export prints paste-ready Veyra refs and account entries without touching Veyra's files. " +
       "magpie has no per-account disable switch: the file has no field for it, so removing or signing out is the only way to take an account out of rotation.",
     args: {
@@ -278,7 +326,7 @@ const tool = {
           type: "string",
           enum: ACTIONS,
           description:
-            "list = all accounts with check-in state; show = one account; rename = change its name; remove = delete it; import = Veyra into magpie; export = magpie as Veyra entries",
+            "all = every account magpie knows, all providers; list = this package's five providers with check-in state; show = one account; rename = change its name; remove = delete it; import = Veyra into magpie; export = magpie as Veyra entries",
         },
         account: {
           type: "string",
@@ -306,6 +354,7 @@ const tool = {
       const { action, account, name, dryRun, confirm } = checked(args)
       const dir = ctx?.directory || ctx?.worktree
       if (!dir) throw new Error("no directory in the tool's context")
+      if (action === "all") return { output: doAll(dir) }
       if (action === "list") return { output: doList(dir) }
       if (action === "show") return { output: doShow(dir, account) }
       if (action === "rename") return { output: doRename(dir, account, name) }
@@ -327,4 +376,4 @@ export async function VeyraToolsPlugin() {
   return { tool }
 }
 
-export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doImport, doExport, doList, doShow, doRename, doRemove, checked, readCheckins }
+export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doAll, doImport, doExport, doList, doShow, doRename, doRemove, checked, readCheckins }
