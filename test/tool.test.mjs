@@ -53,7 +53,7 @@ test("args 是纯 JSON Schema（宿主对 JSON Schema 不校验，得自己判�
   const t = (await tool()).veyra_accounts
   assert.equal(t.args.type, "object")
   assert.deepEqual(Object.keys(t.args.properties).sort(), ["account", "action", "confirm", "dryRun", "name"])
-  assert.deepEqual(t.args.properties.action.enum, ["all", "list", "checkin", "show", "rename", "remove", "import", "export"])
+  assert.deepEqual(t.args.properties.action.enum, ["all", "list", "checkin", "credits", "show", "rename", "remove", "import", "export"])
   // 只有 action 是必需的：account/name 只对部分 action 有意义，由 checked() 按 action 判。
   assert.deepEqual(t.args.required, ["action"])
 })
@@ -337,4 +337,51 @@ test("checkin：宿主六类 outcome 分成三种性质，不把没额度说成�
   const failedBlock = out.slice(out.indexOf("failed (1)"))
   assert.doesNotMatch(failedBlock, /captcha/)
   assert.match(out, /0 in today, 4 not\./)
+})
+
+test("credits：只报记录里真有的数字，并明说余额不在这里", async () => {
+  const t = (await tool()).veyra_accounts
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const dir = playground(
+    {
+      codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "a@x.com" },
+      lobsterai: { type: "oauth", access: "b", refresh: "r", accountId: "b@x.com" },
+      loomy: { type: "api", key: "k", accountId: "c@x.com" },
+    },
+    {
+      "codebuddy|a@x.com": { day: today, outcome: "claimed", credit: 100, streak: 5, until: "2026-11-30T00:00:00Z" },
+      "lobsterai|b@x.com": { day: "2026-10-21", outcome: "claimed", credit: 50, streak: 2 },
+    },
+  )
+  const out = (await t.execute({ action: "credits" }, { directory: dir })).output
+
+  assert.match(out, /\+100 today/)
+  assert.match(out, /5-day streak/)
+  assert.match(out, /credits end 2026-11-30/)
+  // 昨天那笔不能算进今天
+  assert.match(out, /last: claimed on 2026-10-21/)
+  assert.doesNotMatch(out, /\+50 today/)
+  // 没记录如实说
+  assert.match(out, /no record yet/)
+  // 今日合计只算今天的
+  assert.match(out, /100 claimed today/)
+  // 余额必须明说不在其中 —— 用户会拿它跟供应商页对账
+  assert.match(out, /Balance is not here/)
+  assert.match(out, /only magpie reads it/)
+})
+
+test("credits：一条记录都没有时直说没东西可加", async () => {
+  const t = (await tool()).veyra_accounts
+  const dir = playground({ codebuddy: { type: "oauth", access: "a", refresh: "r", accountId: "a@x.com" } })
+  const out = (await t.execute({ action: "credits" }, { directory: dir })).output
+  assert.match(out, /no record yet/)
+  assert.match(out, /No check-in has run yet/)
+  assert.match(out, /0 claimed today/)
+})
+
+test("credits：没有本包账号时给出去哪儿登录的指引", async () => {
+  const t = (await tool()).veyra_accounts
+  const out = (await t.execute({ action: "credits" }, { directory: playground() })).output
+  assert.match(out, /no account/)
+  assert.match(out, /Providers page/)
 })

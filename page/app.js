@@ -73,6 +73,10 @@
     "checkin-how",
     "checkin-list",
     "checkin-where",
+    "credits-h",
+    "credits-note",
+    "credits-where",
+    "credits-list",
     "usage-h",
     "periods",
     "since",
@@ -408,6 +412,37 @@
     )
   }
 
+  /**
+   * 积分段：只指路，不编数字。
+   *
+   * 余额出自各家的 usage 钩子，只有 magpie 读得到；页面沙箱又只放行
+   * `usage:summary` 与 `providers:list`，所以这一段**画不出余额**。
+   * 与其写一个假的"积分 5000"，不如说清去哪儿看、怎么汇总。
+   */
+  function paintCredits() {
+    const w = t()
+    const cr = V.credits(state, w)
+    el["credits-h"].textContent = w.crTitle
+    el["credits-note"].textContent = cr.note
+    el["credits-where"].textContent = cr.where
+    el["credits-list"].replaceChildren(
+      ...cr.rows.map((r) => {
+        const li = document.createElement("li")
+        li.className = "ck-row"
+        li.dataset.pid = r.pid
+        li.dataset.on = r.on ? "1" : "0"
+        const name = document.createElement("span")
+        name.className = "ck-name"
+        name.textContent = r.name
+        const said = document.createElement("span")
+        said.className = "ck-said"
+        said.textContent = r.said
+        li.append(name, said)
+        return li
+      }),
+    )
+  }
+
   function paintCards() {
     const w = t()
     el.cards.replaceChildren(...V.cards(state, w).map(cardNode))
@@ -479,6 +514,7 @@
     paintOverview()
     paintAccounts()
     paintCheckin()
+    paintCredits()
     paintQueue()
     paintCards()
     paintUsage()

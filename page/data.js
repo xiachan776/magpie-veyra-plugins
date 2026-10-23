@@ -209,6 +209,12 @@
       ckNote: (can, all) => `本包 ${can} / ${all} 家有签到`,
       ckBadgeOn: "可签到",
       ckBadgeOff: "无签到",
+      crTitle: "积分",
+      crNote: "余额不在这一页",
+      crWhere:
+        "每家的积分余额出自它自己的用量接口，只有 magpie 读得到 —— 在 magpie 的 Providers 页看。这里能给的是签到进账：让 agent 调 veyra_accounts 的 action=credits，会把今日进账、连续天数、到期日按账号列出来。",
+      crByCheckin: "签到有进账，可用 action=credits 汇总",
+      crNoCheckin: "无签到，也就没有签到进账",
       ckHow:
         "签到由 magpie 自己每天自动跑一次：按北京日、每个账号各签一次，当天失败稍后重投；开关在「设置 → 签到」里按 provider 控制。要立刻跑一轮，用 magpie 用量页的签到按钮。",
       ckWhere:
@@ -316,6 +322,12 @@
       ckNote: (can, all) => `${can} of this plugin's ${all} providers check in`,
       ckBadgeOn: "check-in",
       ckBadgeOff: "none",
+      crTitle: "Credits",
+      crNote: "balances are not on this page",
+      crWhere:
+        "Each provider's balance comes from its own usage endpoint, which only magpie reads — see magpie's Providers page. What is here is check-in credit: have the agent call veyra_accounts with action=credits to list today's credit, the streak and the expiry per account.",
+      crByCheckin: "check-in credit usable, add it up with action=credits",
+      crNoCheckin: "no check-in, so no check-in credit",
       ckHow:
         "Check-in runs by itself once a day inside magpie: every account once per Beijing day, a failure tried again later that day. Per-provider switches live in Settings → Check-in; magpie's Usage page has the button to run it now.",
       ckWhere:
@@ -692,6 +704,28 @@
     }
   }
 
+  /**
+   * 积分：这一页能说与不能说的。
+   *
+   * 余额不在这里，而且不可能在这里：每家的余额出自 auth.usage
+   * (internal/plugin/host.js:2228 的 balance 与 windows[].amount/limit)，
+   * 那份数据只在宿主里经过一次就丢掉了，插件进程拿不到；页面沙箱也只被允许读
+   * usage:summary 与 providers:list 两个 key (internal/plugin/page.go:77)，
+   * 没有任何一条路能把余额送进来。
+   *
+   * 所以这一段只做指路：余额去哪儿看，签到进账去哪儿算。写一个假的
+   * "积分 5000" 比不写更糟 —— 用户会拿它跟供应商页对账。
+   */
+  function credits(state, t) {
+    const r = roster(state)
+    const rows = (r === null ? PROVIDERS : PROVIDERS.filter((p) => r.some((x) => x.id === p.id))).map((p) => ({
+      pid: p.id,
+      name: p.name,
+      on: Boolean(p.checkin),
+      said: p.checkin ? t.crByCheckin : t.crNoCheckin,
+    }))
+    return { note: t.crNote, where: t.crWhere, rows }
+  }
   globalThis.VeyraPage = {
     VERSION,
     PERIODS,
@@ -706,6 +740,7 @@
     loginQueue,
     accounts,
     checkin,
+    credits,
     usage,
   }
 })()

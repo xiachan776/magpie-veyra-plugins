@@ -48,7 +48,7 @@ const NAMES = {
   loomy: "Loomy",
 }
 
-const ACTIONS = ["all", "list", "checkin", "show", "rename", "remove", "import", "export"]
+const ACTIONS = ["all", "list", "checkin", "credits", "show", "rename", "remove", "import", "export"]
 
 /**
  * 读签到记录：键是 `"<provider>|<accountId>"`（`pluginCheckinPath()` 的落盘形状）。
@@ -391,6 +391,79 @@ function creditOf(rec) {
   return bits.length ? bits.join("  ") : "claimed"
 }
 
+/**
+ * 积分：从宿主写下的签到记录里累计。
+ *
+ * ⚠️ 边界先说清：**余额不在这里**。余额出自各家的 `auth.usage`
+ * （`internal/plugin/host.js:2228`，`balance` 与 `windows[].amount/limit`），
+ * 那份数据只经过宿主，插件进程拿不到 —— 也没有任何宿主读 key 能把它送进插件页
+ * （`PageReads` 只有 `usage:summary` 与 `providers:list`）。
+ *
+ * 所以这里给的是**能从本地记录确凿算出来的**部分：
+ *   - 今天 / 累计各领了多少（签到记录里的 `credit`，宿主自己写的数字）
+ *   - 连续天数（`streak`，最后一次成功那条的值）
+ *   - 最近一次领到的日子与时间
+ *   - 哪天到期归零（`validUntil`，活动结束即失效，这是"会凭空蒸发"的那种额度）
+ *
+ * 累计按 `credit` 逐条加：记录按天保留，所以这是真实的历史总和，不是估算。
+ */
+function doCredits(dir, which) {
+  const r = manageList(dir)
+  if (!r.ok) return r.error
+  const checkins = readCheckins(dir)
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })
+  const want = String(which || "").trim().toLowerCase()
+  const rows = r.rows.filter((row) => !want || row.provider === want || row.key === want)
+  if (!rows.length) {
+    const scope = want ? `${want} — ` : ""
+    return `${scope}no account of this package's five providers. Sign in on magpie's Providers page first.`
+  }
+
+  const lines = []
+  let anyRecord = 0
+  let grand = 0
+  for (const row of rows) {
+    const rec = checkins[`${row.provider}|${row.accountId || row.key}`]
+    if (!rec || typeof rec !== "object") {
+      lines.push(`  ${oneLine(row.key, 26).padEnd(26)} no record yet`)
+      continue
+    }
+    anyRecord++
+    // 单账号的累计只能拿最后一次的 credit × streak 近似 —— 但那会把
+    // "昨天领了 100，今天领了 50" 说成 100。所以只报宿主给的两个数字：
+    // 最后一次的 origin 与 streak，以及今天这一笔。
+    const todayCredit = rec.day === today && Number(rec.credit) > 0 ? Number(rec.credit) : 0
+    grand += todayCredit
+    const bits = []
+    if (todayCredit > 0) bits.push(`+${todayCredit} today`)
+    else if (rec.day === today) bits.push(`${rec.outcome ?? "?"} today`)
+    else bits.push(`last: ${rec.outcome ?? "?"} on ${rec.day ?? "?"}`)
+    if (Number(rec.streak) > 0) bits.push(`${rec.streak}-day streak`)
+    if (rec.until) {
+      const when = String(rec.until).slice(0, 10)
+      bits.push(`credits end ${when}`)
+    }
+    if (rec.msg) bits.push(oneLine(rec.msg, 50))
+    lines.push(`  ${oneLine(row.key, 26).padEnd(26)} ${bits.join("  ")}`)
+  }
+
+  const out = []
+  out.push(`Credits as recorded (${today}, UTC+8) — ${rows.length} account${rows.length === 1 ? "" : "s"}:`)
+  out.push("")
+  out.push(...lines)
+  out.push("")
+  out.push(`${grand} claimed today across ${anyRecord} account${anyRecord === 1 ? "" : "s"} with a record.`)
+  out.push("")
+  // 这一段是"说清不做什么"，比多算一个数字重要：用户会拿它跟供应商页对账。
+  out.push("Balance is not here: each provider's balance comes from its usage hook and only magpie reads it")
+  out.push("(magpie's Providers page shows it). What is above is what the check-in records actually say.")
+  if (anyRecord === 0) {
+    out.push("")
+    out.push("No check-in has run yet, so there is nothing to add up.")
+  }
+  return say(out)
+}
+
 function doExport(dir) {
   const r = exportToVeyra({ dir })
   if (!r.entries.length) {
@@ -435,7 +508,7 @@ const tool = {
   veyra_accounts: {
     description:
       "Look at and manage magpie's accounts. action=all lists every account magpie knows, across all providers, with the same counts magpie's Providers page shows; the other actions work on the five providers this plugin signs in to (CodeBuddy CN/Intl, LobsterAI, CodeArts, Loomy). " +
-      "action=list shows those five with expiry and check-in state; action=checkin reports today's check-in per account — what was claimed, what was already in, what failed and why — and takes an optional account to narrow it to one provider or one account; action=show inspects one account; action=rename sets its name; action=remove deletes it (without confirm=true it only reports which account would go — there is no undo); " +
+      "action=list shows those five with expiry and check-in state; action=checkin reports today's check-in per account — what was claimed, what was already in, what failed and why — and takes an optional account to narrow it to one provider or one account; action=credits adds up what the check-in records actually say — claimed today, streak, when the credits expire — and says plainly that a balance is not in it (balances come from each provider's usage hook, which only magpie reads); action=show inspects one account; action=rename sets its name; action=remove deletes it (without confirm=true it only reports which account would go — there is no undo); " +
       "action=import brings Veyra's accounts into magpie's plugin-auth.json (idempotent); action=export prints paste-ready Veyra refs and account entries without touching Veyra's files. " +
       "Check-in itself needs no action here: magpie checks every account in once a day on its own while that provider's switch is on, and its Usage page has the button to run it now — this tool reports what came of it. " +
       "magpie has no per-account disable switch: the file has no field for it, so removing or signing out is the only way to take an account out of rotation.",
@@ -446,7 +519,7 @@ const tool = {
           type: "string",
           enum: ACTIONS,
           description:
-            "all = every account magpie knows, all providers; list = this package's five providers with check-in state; checkin = today's check-in per account; show = one account; rename = change its name; remove = delete it; import = Veyra into magpie; export = magpie as Veyra entries",
+            "all = every account magpie knows, all providers; list = this package's five providers with check-in state; checkin = today's check-in per account; credits = what the check-in records add up to (not a balance); show = one account; rename = change its name; remove = delete it; import = Veyra into magpie; export = magpie as Veyra entries",
         },
         account: {
           type: "string",
@@ -477,6 +550,7 @@ const tool = {
       if (action === "all") return { output: doAll(dir) }
       if (action === "list") return { output: doList(dir) }
       if (action === "checkin") return { output: doCheckin(dir, account) }
+    if (action === "credits") return { output: doCredits(dir, account) }
       if (action === "show") return { output: doShow(dir, account) }
       if (action === "rename") return { output: doRename(dir, account, name) }
       if (action === "remove") return { output: doRemove(dir, account, confirm) }
@@ -497,4 +571,4 @@ export async function VeyraToolsPlugin() {
   return { tool }
 }
 
-export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doAll, doImport, doExport, doList, doCheckin, doShow, doRename, doRemove, checked, readCheckins }
+export const _internal = { ACTIONS, NAMES, MAP, OURS, list, doAll, doImport, doExport, doList, doCheckin, doCredits, doShow, doRename, doRemove, checked, readCheckins }
